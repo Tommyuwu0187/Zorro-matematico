@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zorro vs Zombie Matemático</title>
+    <style>
+        :root {
+            --color-bg: #000000;
+            --color-text: #ffffff;
+            --color-health: #4caf50;
+            --color-damage: #f44336;
+            --color-score: #2196f3;
+        }
+
+        body { 
+            margin: 0; 
+            background-color: var(--color-bg); 
+            color: var(--color-text); 
+            font-family: 'Courier New', Courier, monospace; 
+            overflow: hidden; 
+            user-select: none;
+            touch-action: none;
+        }
+        
+        .game-area {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: 
+                linear-gradient(transparent 90%, #333 90%, #333 91%, transparent 91%) 0 100px / 300px 300px,
+                linear-gradient(transparent 50%, #333 50%, #333 51%, transparent 51%) 150px 0 / 400px 200px;
+        }
+
+        .overlay-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            color: white;
+            text-align: center;
+        }
+
+        .overlay-screen--active { display: flex; }
+        .overlay-screen h1 { font-size: 4rem; color: #ffcc00; margin-bottom: 10px; }
+        .overlay-screen p { font-size: 1.5rem; margin-bottom: 30px; }
+
+        .btn-menu {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            font-family: inherit;
+            color: #000;
+            background: #ffcc00;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        #rotateDevice { display: none; z-index: 9999; background: #000; }
+        @media screen and (orientation: portrait) {
+            #rotateDevice { display: flex !important; }
+        }
+
+        #joystick-zone {
+            display: none; 
+            position: absolute;
+            bottom: 40px; left: 40px;
+            width: 140px; height: 140px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            z-index: 50;
+        }
+
+        #joystick-knob {
+            position: absolute;
+            top: 40px; left: 40px;
+            width: 60px; height: 60px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* --- SPRITES --- */
+        .sprite { 
+            position: absolute; 
+            width: 140px; height: 140px; 
+            background-size: contain; 
+            background-position: center;
+            background-repeat: no-repeat;
+            image-rendering: pixelated; 
+        }
+        
+        #zorro { background-image: url('zorro.png'); z-index: 10; }
+        .zombie-sprite { background-image: url('zombie.png'); z-index: 5; }
+
+        #attackVideo, #runVideo { display: none; }
+        .chroma-canvas { display: none; position: absolute; pointer-events: none; }
+        #runCanvas { z-index: 10; } 
+        #attackCanvas { z-index: 15; } 
+
+        .hud {
+            position: absolute; top: 20px; left: 20px; right: 20px;
+            z-index: 20; display: flex; justify-content: space-between;
+        }
+        .hud__stat { display: flex; align-items: center; gap: 10px; }
+        .hud__stat h2 { margin: 0; font-size: 1.5rem; text-shadow: 2px 2px 0 #000; }
+        .hud__bar { width: 200px; height: 25px; background-color: #333; border: 2px solid #fff; border-radius: 4px; overflow: hidden; }
+        .hud__fill--health { width: 100%; height: 100%; background-color: var(--color-health); transition: width 0.3s ease; }
+        .hud__fill--score { width: 0%; height: 100%; background-color: var(--color-score); transition: width 0.3s ease; }
+
+        .battle-ui { display: none; position: absolute; z-index: 100; }
+        .battle-ui--active { display: block; }
+        .battle-ui--error .battle-ui__math { color: var(--color-damage); animation: shake 0.4s; }
+        .battle-ui__math { 
+            position: absolute; top: -40px; left: -180px; 
+            font-size: 3rem; color: #ffffff; margin: 0;
+            white-space: nowrap; text-shadow: 2px 2px 0 #000;
+        }
+        
+        .keypad {
+            display: none; 
+            grid-template-columns: repeat(3, 50px); gap: 8px;
+            background: #333333; padding: 12px; border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+        }
+        .keypad__btn { 
+            padding: 10px; font-size: 20px; font-weight: bold; 
+            cursor: pointer; border: none; border-radius: 6px; 
+            background: #666666; color: #ffffff;
+        }
+        .keypad__btn:active { background: #888888; }
+        .keypad__btn--action { background: #4caf50; }
+        .keypad__btn--clear { background: var(--color-damage); }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25%, 75% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="rotateDevice" class="overlay-screen">
+    <h1>Gira tu dispositivo</h1>
+    <p>Este juego solo se puede jugar en horizontal.</p>
+</div>
+
+<div id="mainMenu" class="overlay-screen overlay-screen--active">
+    <h1>Zorro Matemático</h1>
+    <p>Resuelve las operaciones para derrotar a los zombies.</p>
+    <button id="btnStart" class="btn-menu">Iniciar Juego</button>
+</div>
+
+<div id="victoryScreen" class="overlay-screen">
+    <h1>¡Nivel Completado!</h1>
+    <p>Has conseguido los 200 puntos.</p>
+    <button id="btnRestart" class="btn-menu">Volver a Jugar</button>
+</div>
+
+<div class="game-area">
+    <div class="hud">
+        <div class="hud__stat">
+            <h2>HP:</h2>
+            <div class="hud__bar"><div class="hud__fill--health" id="healthFill"></div></div>
+        </div>
+        <div class="hud__stat">
+            <h2>PTS: <span id="scoreText">0</span></h2>
+            <div class="hud__bar"><div class="hud__fill--score" id="scoreFill"></div></div>
+        </div>
+    </div>
+
+    <!-- Joystick Móvil -->
+    <div id="joystick-zone">
+        <div id="joystick-knob"></div>
+    </div>
+
+    <video id="attackVideo" src="ataque.mp4" playsinline crossorigin="anonymous"></video>
+    <canvas id="attackCanvas" class="chroma-canvas"></canvas>
+
+    <video id="runVideo" src="correr.mp4" playsinline crossorigin="anonymous" loop></video>
+    <canvas id="runCanvas" class="chroma-canvas"></canvas>
+
+    <div id="zorro" class="sprite"></div>
+    <div id="zombie1" class="sprite zombie-sprite"></div>
+    <div id="zombie2" class="sprite zombie-sprite"></div>
+    
+    <div id="battleUI" class="battle-ui">
+        <h2 class="battle-ui__math" id="displayMath">2 X 5 = ?</h2>
+        <div class="keypad" id="keypad"></div>
+    </div>
+</div>
+
+<script>
+    // --- Detección de Dispositivo Móvil ---
+    const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(navigator.userAgent.toLowerCase());
+    const keypadEl = document.getElementById('keypad');
+    const joystickZone = document.getElementById('joystick-zone');
+    
+    if (isMobile) {
+        keypadEl.style.display = 'grid';
+        joystickZone.style.display = 'block';
+    }
+
+    // --- Referencias y Variables ---
+    const zorroEl = document.getElementById('zorro');
+    const attackVideo = document.getElementById('attackVideo');
+    const attackCanvas = document.getElementById('attackCanvas');
+    const attackCtx = attackCanvas.getContext('2d', { willReadFrequently: true });
+    
+    const runVideo = document.getElementById('runVideo');
+    const runCanvas = document.getElementById('runCanvas');
+    const runCtx = runCanvas.getContext('2d', { willReadFrequently: true });
+
+    const battleUI = document.getElementById('battleUI');
+    const displayMath = document.getElementById('displayMath');
+    const healthFill = document.getElementById('healthFill');
+    const scoreFill = document.getElementById('scoreFill');
+    const scoreText = document.getElementById('scoreText');
+
+    const mainMenu = document.getElementById('mainMenu');
+    const victoryScreen = document.getElementById('victoryScreen');
+
+    let gameState = 'MENU'; 
+    let playerHP = 100;
+    let score = 0;
+    const maxScore = 200;
+    
+    let pX = window.innerWidth / 2, pY = window.innerHeight / 2;
+    let isFacingLeft = false; 
+    let isMoving = false;
+    
+    const playerSpeed = 5;
+    const zombieSpeed = 1.5; 
+    const baseSpriteHeight = 140;
+
+    const zombies = [
+        { el: document.getElementById('zombie1'), x: 0, y: 0, facingLeft: true },
+        { el: document.getElementById('zombie2'), x: 0, y: 0, facingLeft: true }
+    ];
+    let activeZombie = null; 
+
+    const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+    let currentProblem = { a: 0, b: 0 };
+    let currentAnswer = 0;
+    let playerAnswer = "";
+
+    // --- Lógica del Joystick Móvil ---
+    const knob = document.getElementById('joystick-knob');
+    let joyActive = false;
+    let joyCenter = { x: 0, y: 0 };
+
+    joystickZone.addEventListener('touchstart', (e) => {
+        joyActive = true;
+        const rect = joystickZone.getBoundingClientRect();
+        joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        handleJoyMove(e.touches[0]);
+    });
+    joystickZone.addEventListener('touchmove', (e) => { if (joyActive) handleJoyMove(e.touches[0]); });
+    joystickZone.addEventListener('touchend', () => {
+        joyActive = false; knob.style.transform = `translate(0px, 0px)`;
+        keys.w = keys.a = keys.s = keys.d = false;
+    });
+
+    function handleJoyMove(touch) {
+        let dx = touch.clientX - joyCenter.x;
+        let dy = touch.clientY - joyCenter.y;
+        const maxDist = 40; 
+        const dist = Math.hypot(dx, dy);
+        
+        if (dist > maxDist) { dx = (dx / dist) * maxDist; dy = (dy / dist) * maxDist; }
+        knob.style.transform = `translate(${dx}px, ${dy}px)`;
+        
+        const threshold = 15;
+        keys.w = dy < -threshold; keys.s = dy > threshold;
+        keys.a = dx < -threshold; keys.d = dx > threshold;
+    }
+
+    // --- Tamaños de Canvas ---
+    attackVideo.addEventListener('loadedmetadata', () => {
+        const aspectRatio = attackVideo.videoWidth / attackVideo.videoHeight;
+        attackCanvas.height = baseSpriteHeight; 
+        attackCanvas.width = baseSpriteHeight * aspectRatio; 
+    });
+
+    const runScale = 0.85;
+    const runCanvasHeight = baseSpriteHeight * runScale; 
+    runVideo.addEventListener('loadedmetadata', () => {
+        const aspectRatio = runVideo.videoWidth / runVideo.videoHeight;
+        runCanvas.height = runCanvasHeight; 
+        runCanvas.width = runCanvasHeight * aspectRatio; 
+    });
+
+    // --- Menús ---
+    document.getElementById('btnStart').onclick = () => { mainMenu.classList.remove('overlay-screen--active'); startGame(); };
+    document.getElementById('btnRestart').onclick = () => { victoryScreen.classList.remove('overlay-screen--active'); startGame(); };
+
+    function startGame() {
+        playerHP = 100; score = 0; scoreText.textContent = score;
+        healthFill.style.width = `100%`; healthFill.style.backgroundColor = "var(--color-health)";
+        scoreFill.style.width = `0%`;
+        pX = window.innerWidth / 2; pY = window.innerHeight / 2;
+        
+        // Colocamos los zombies al iniciar
+        zombies.forEach(z => spawnZombieAway(z));
+        gameState = 'EXPLORING';
+    }
+
+    // --- Bucle Principal ---
+    function gameLoop() {
+        if (gameState === 'EXPLORING') {
+            movePlayer();
+            moveZombies();
+            updateSprites();
+            handleRunningAnimation();
+            checkCollision();
+        }
+        requestAnimationFrame(gameLoop);
+    }
+
+    function movePlayer() {
+        isMoving = false;
+        if (keys.w || keys.ArrowUp) { pY -= playerSpeed; isMoving = true; }
+        if (keys.s || keys.ArrowDown) { pY += playerSpeed; isMoving = true; }
+        if (keys.a || keys.ArrowLeft) { pX -= playerSpeed; isFacingLeft = true; isMoving = true; }
+        if (keys.d || keys.ArrowRight) { pX += playerSpeed; isFacingLeft = false; isMoving = true; }
+
+        pX = Math.max(0, Math.min(window.innerWidth - baseSpriteHeight, pX));
+        pY = Math.max(0, Math.min(window.innerHeight - baseSpriteHeight, pY));
+    }
+
+    function moveZombies() {
+        zombies.forEach(z => {
+            const dx = pX - z.x;
+            const dy = pY - z.y;
+            const distance = Math.hypot(dx, dy);
+
+            if (distance > 0) {
+                z.x += (dx / distance) * zombieSpeed;
+                z.y += (dy / distance) * zombieSpeed;
+                
+                // LÓGICA DE DIRECCIÓN:
+                // Si dx > 0, significa que el zorro está a la DERECHA del zombie.
+                // Como la imagen mira a la IZQUIERDA por defecto, debemos invertirla cuando va hacia la derecha.
+                z.facingLeft = dx < 0; 
+            }
+        });
+    }
+
+    function updateSprites() {
+        zorroEl.style.left = `${pX}px`;
+        zorroEl.style.top = `${pY}px`;
+        zorroEl.style.transform = isFacingLeft ? 'scaleX(-1)' : 'scaleX(1)';
+        
+        // Actualizamos la posición e invertimos el sprite si no mira a la izquierda
+        zombies.forEach(z => {
+            z.el.style.left = `${z.x}px`;
+            z.el.style.top = `${z.y}px`;
+            z.el.style.transform = z.facingLeft ? 'scaleX(1)' : 'scaleX(-1)';
+        });
+    }
+
+    function applyChromaKey(video, canvas, ctx) {
+        if (video.paused || video.ended) return;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        let frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let data = frame.data;
+        for (let i = 0; i < data.length; i += 4) {
+            let r = data[i + 0], g = data[i + 1], b = data[i + 2];
+            if (g > 90 && g > r * 1.3 && g > b * 1.3) data[i + 3] = 0; 
+        }
+        ctx.putImageData(frame, 0, 0);
+    }
+
+    function handleRunningAnimation() {
+        if (isMoving) {
+            if (runVideo.paused) runVideo.play();
+            zorroEl.style.display = 'none'; 
+            
+            const canvasWidth = runCanvas.width || (baseSpriteHeight * runScale);
+            const xOffset = (canvasWidth - baseSpriteHeight) / 2;
+            const yOffset = baseSpriteHeight - runCanvasHeight; 
+
+            runCanvas.style.left = `${pX - xOffset}px`;
+            runCanvas.style.top = `${pY + yOffset}px`;
+            runCanvas.style.transform = isFacingLeft ? 'scaleX(-1)' : 'scaleX(1)';
+            runCanvas.style.display = 'block';
+
+            applyChromaKey(runVideo, runCanvas, runCtx);
+        } else {
+            if (!runVideo.paused) runVideo.pause();
+            runCanvas.style.display = 'none';
+            zorroEl.style.display = 'block'; 
+        }
+    }
+
+    function checkCollision() {
+        for (let i = 0; i < zombies.length; i++) {
+            const distance = Math.hypot(pX - zombies[i].x, pY - zombies[i].y);
+            if (distance < 100) {
+                activeZombie = zombies[i];
+                startBattle();
+                break; 
+            }
+        }
+    }
+
+    function startBattle() {
+        gameState = 'FIGHTING';
+        if (!runVideo.paused) runVideo.pause();
+        runCanvas.style.display = 'none';
+        zorroEl.style.display = 'block';
+        
+        joystickZone.style.visibility = 'hidden'; 
+        
+        const uiLeft = Math.min(activeZombie.x + 160, window.innerWidth - 200);
+        const uiTop = Math.max(activeZombie.y - 20, 50);
+        
+        battleUI.style.left = `${uiLeft}px`;
+        battleUI.style.top = `${uiTop}px`;
+        battleUI.classList.add('battle-ui--active');
+        
+        currentProblem.a = Math.floor(Math.random() * 10) + 1;
+        currentProblem.b = Math.floor(Math.random() * 10) + 1;
+        currentAnswer = currentProblem.a * currentProblem.b;
+        
+        clearInput();
+    }
+
+    function addDigit(num) { if (playerAnswer.length < 3) { playerAnswer += num; updateDisplay(); } }
+    function removeDigit() { playerAnswer = playerAnswer.slice(0, -1); updateDisplay(); }
+    function clearInput() { playerAnswer = ""; updateDisplay(); }
+
+    function updateDisplay() {
+        const displayValue = playerAnswer === "" ? "?" : playerAnswer;
+        displayMath.innerHTML = `${currentProblem.a} X ${currentProblem.b} = <span style="color:#ffcc00">${displayValue}</span>`;
+    }
+
+    function checkAnswer() {
+        if (playerAnswer === "") return;
+        if (parseInt(playerAnswer) === currentAnswer) {
+            playAttackSequence();
+        } else {
+            takeDamage(25);
+            battleUI.classList.add('battle-ui--error');
+            setTimeout(() => { battleUI.classList.remove('battle-ui--error'); clearInput(); }, 400);
+        }
+    }
+
+    function playAttackSequence() {
+        battleUI.classList.remove('battle-ui--active');
+        gameState = 'ANIMATING'; 
+        zorroEl.style.display = 'none';
+
+        const canvasWidth = attackCanvas.width || baseSpriteHeight;
+        const xOffset = (canvasWidth - baseSpriteHeight) / 2;
+
+        attackCanvas.style.left = `${pX - xOffset}px`;
+        attackCanvas.style.top = `${pY}px`;
+        attackCanvas.style.transform = isFacingLeft ? 'scaleX(-1)' : 'scaleX(1)';
+        attackCanvas.style.display = 'block';
+
+        attackVideo.currentTime = 0;
+        attackVideo.play();
+        
+        loopAttackChromaKey();
+    }
+
+    function loopAttackChromaKey() {
+        if (gameState !== 'ANIMATING') return;
+        applyChromaKey(attackVideo, attackCanvas, attackCtx);
+        requestAnimationFrame(loopAttackChromaKey);
+    }
+
+    attackVideo.addEventListener('ended', () => {
+        attackCanvas.style.display = 'none';
+        zorroEl.style.display = 'block'; 
+        score += 10;
+        scoreText.textContent = score;
+        scoreFill.style.width = `${(score / maxScore) * 100}%`;
+        
+        if (score >= maxScore) {
+            gameState = 'VICTORY';
+            victoryScreen.classList.add('overlay-screen--active');
+        } else {
+            endBattle();
+        }
+    });
+
+    function takeDamage(amount) {
+        playerHP -= amount;
+        if (playerHP <= 0) {
+            playerHP = 0;
+            gameState = 'GAMEOVER';
+            setTimeout(() => { alert("¡Has muerto!"); location.reload(); }, 100);
+        }
+        healthFill.style.width = `${playerHP}%`;
+        if (playerHP <= 25) healthFill.style.backgroundColor = "var(--color-damage)";
+    }
+
+    function endBattle() {
+        gameState = 'EXPLORING';
+        joystickZone.style.visibility = 'visible';
+        if (activeZombie) { spawnZombieAway(activeZombie); activeZombie = null; }
+    }
+
+    // Modificado para que aparezcan justo al borde de la pantalla y no tan lejos
+    function spawnZombieAway(zombieObj) {
+        const edge = Math.floor(Math.random() * 4);
+        if (edge === 0) { zombieObj.x = Math.random() * window.innerWidth; zombieObj.y = -10; }
+        else if (edge === 1) { zombieObj.x = window.innerWidth + 10; zombieObj.y = Math.random() * window.innerHeight; }
+        else if (edge === 2) { zombieObj.x = Math.random() * window.innerWidth; zombieObj.y = window.innerHeight + 10; }
+        else { zombieObj.x = -10; zombieObj.y = Math.random() * window.innerHeight; }
+        
+        zombieObj.el.style.left = `${zombieObj.x}px`;
+        zombieObj.el.style.top = `${zombieObj.y}px`;
+    }
+
+    // --- Inputs Numéricos ---
+    const layout = [1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, 'OK'];
+    layout.forEach(key => {
+        const btn = document.createElement('button');
+        btn.textContent = key; btn.className = 'keypad__btn';
+        if (key === 'C') { btn.classList.add('keypad__btn--clear'); btn.onclick = clearInput; } 
+        else if (key === 'OK') { btn.classList.add('keypad__btn--action'); btn.onclick = checkAnswer; } 
+        else { btn.onclick = () => addDigit(key); }
+        keypadEl.appendChild(btn);
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (gameState === 'EXPLORING') {
+            if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
+        } else if (gameState === 'FIGHTING') {
+            if (e.key >= '0' && e.key <= '9') addDigit(e.key);
+            if (e.key === 'Backspace') removeDigit();
+            if (e.key === 'Escape' || e.key.toLowerCase() === 'c') clearInput();
+            if (e.key === 'Enter') checkAnswer();
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
+    });
+
+    requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
