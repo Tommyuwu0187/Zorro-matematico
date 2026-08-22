@@ -32,6 +32,7 @@
                 linear-gradient(transparent 50%, #333 50%, #333 51%, transparent 51%) 150px 0 / 400px 200px;
         }
 
+        /* --- Pantallas Superpuestas --- */
         .overlay-screen {
             position: absolute;
             top: 0; left: 0; width: 100vw; height: 100vh;
@@ -46,8 +47,8 @@
         }
 
         .overlay-screen--active { display: flex; }
-        .overlay-screen h1 { font-size: 4rem; color: #ffcc00; margin-bottom: 10px; }
-        .overlay-screen p { font-size: 1.5rem; margin-bottom: 30px; }
+        .overlay-screen h1 { font-size: 3rem; color: #ffcc00; margin-bottom: 10px; }
+        .overlay-screen p { font-size: 1.2rem; margin-bottom: 30px; padding: 0 20px;}
 
         .btn-menu {
             padding: 15px 40px;
@@ -59,6 +60,10 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
         }
 
         #rotateDevice { display: none; z-index: 9999; background: #000; }
@@ -66,6 +71,7 @@
             #rotateDevice { display: flex !important; }
         }
 
+        /* --- Joystick --- */
         #joystick-zone {
             display: none; 
             position: absolute;
@@ -104,6 +110,7 @@
         #runCanvas { z-index: 10; } 
         #attackCanvas { z-index: 15; } 
 
+        /* --- UI HUD --- */
         .hud {
             position: absolute; top: 20px; left: 20px; right: 20px;
             z-index: 20; display: flex; justify-content: space-between;
@@ -114,11 +121,19 @@
         .hud__fill--health { width: 100%; height: 100%; background-color: var(--color-health); transition: width 0.3s ease; }
         .hud__fill--score { width: 0%; height: 100%; background-color: var(--color-score); transition: width 0.3s ease; }
 
-        .battle-ui { display: none; position: absolute; z-index: 100; }
-        .battle-ui--active { display: block; }
+        /* --- UI BATALLA --- */
+        .battle-ui { 
+            display: none; 
+            position: absolute; 
+            z-index: 100; 
+            align-items: center;
+            gap: 20px; 
+        }
+        .battle-ui--active { display: flex; } 
         .battle-ui--error .battle-ui__math { color: var(--color-damage); animation: shake 0.4s; }
+        
         .battle-ui__math { 
-            position: absolute; top: -40px; left: -180px; 
+            position: relative; 
             font-size: 3rem; color: #ffffff; margin: 0;
             white-space: nowrap; text-shadow: 2px 2px 0 #000;
         }
@@ -147,21 +162,32 @@
 </head>
 <body>
 
+<!-- Pantalla de Rotación con Botón -->
 <div id="rotateDevice" class="overlay-screen">
     <h1>Gira tu dispositivo</h1>
-    <p>Este juego solo se puede jugar en horizontal.</p>
+    <p>Este juego se juega mejor en horizontal.</p>
+    <button id="btnForceRotate" class="btn-menu">🔄 Rotar Pantalla</button>
 </div>
 
+<!-- Menú Principal -->
 <div id="mainMenu" class="overlay-screen overlay-screen--active">
     <h1>Zorro Matemático</h1>
     <p>Resuelve las operaciones para derrotar a los zombies.</p>
-    <button id="btnStart" class="btn-menu">Iniciar Juego</button>
+    <button id="btnStart" class="btn-menu">▶ Iniciar Juego</button>
 </div>
 
+<!-- Menú de Pausa -->
+<div id="pauseScreen" class="overlay-screen">
+    <h1>Juego Pausado</h1>
+    <p>Has salido del modo pantalla completa.</p>
+    <button id="btnResumeFS" class="btn-menu">🔲 Volver a Pantalla Completa</button>
+</div>
+
+<!-- Menú de Victoria -->
 <div id="victoryScreen" class="overlay-screen">
     <h1>¡Nivel Completado!</h1>
     <p>Has conseguido los 200 puntos.</p>
-    <button id="btnRestart" class="btn-menu">Volver a Jugar</button>
+    <button id="btnRestart" class="btn-menu">🔄 Volver a Jugar</button>
 </div>
 
 <div class="game-area">
@@ -176,7 +202,6 @@
         </div>
     </div>
 
-    <!-- Joystick Móvil -->
     <div id="joystick-zone">
         <div id="joystick-knob"></div>
     </div>
@@ -198,7 +223,7 @@
 </div>
 
 <script>
-    // --- Detección de Dispositivo Móvil ---
+    // --- Detección Móvil ---
     const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(navigator.userAgent.toLowerCase());
     const keypadEl = document.getElementById('keypad');
     const joystickZone = document.getElementById('joystick-zone');
@@ -208,7 +233,7 @@
         joystickZone.style.display = 'block';
     }
 
-    // --- Referencias y Variables ---
+    // --- Referencias ---
     const zorroEl = document.getElementById('zorro');
     const attackVideo = document.getElementById('attackVideo');
     const attackCanvas = document.getElementById('attackCanvas');
@@ -225,9 +250,11 @@
     const scoreText = document.getElementById('scoreText');
 
     const mainMenu = document.getElementById('mainMenu');
+    const pauseScreen = document.getElementById('pauseScreen');
     const victoryScreen = document.getElementById('victoryScreen');
 
     let gameState = 'MENU'; 
+    let previousState = '';
     let playerHP = 100;
     let score = 0;
     const maxScore = 200;
@@ -245,13 +272,66 @@
         { el: document.getElementById('zombie2'), x: 0, y: 0, facingLeft: true }
     ];
     let activeZombie = null; 
-
-    const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+    const keys = { w: false, a: false, s: false, d: false };
     let currentProblem = { a: 0, b: 0 };
     let currentAnswer = 0;
     let playerAnswer = "";
 
-    // --- Lógica del Joystick Móvil ---
+    // --- FULLSCREEN Y ROTACIÓN API ---
+    async function enterFullscreenAndRotate() {
+        try {
+            const elem = document.documentElement;
+            // 1. Pedir pantalla completa primero
+            if (elem.requestFullscreen) {
+                await elem.requestFullscreen();
+            } else if (elem.webkitRequestFullscreen) {
+                await elem.webkitRequestFullscreen();
+            }
+            
+            // 2. Bloquear orientación a horizontal
+            if (screen.orientation && screen.orientation.lock) {
+                await screen.orientation.lock('landscape');
+            }
+        } catch (err) {
+            console.warn("No se pudo forzar la rotación o fullscreen:", err);
+            // Mostrar una alerta amigable si el navegador (como iOS Safari) lo bloquea
+            if(window.innerHeight > window.innerWidth) {
+                alert("Tu navegador no permite la rotación automática. Por favor, gira tu dispositivo manualmente y asegúrate de tener el giro automático activado.");
+            }
+        }
+    }
+
+    // Botón de forzar rotación en la pantalla de error vertical
+    document.getElementById('btnForceRotate').addEventListener('click', enterFullscreenAndRotate);
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+    function handleFullscreenChange() {
+        if (!isMobile) return; 
+        const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+        
+        if (!isFullscreen) {
+            if (gameState === 'EXPLORING' || gameState === 'FIGHTING' || gameState === 'ANIMATING') {
+                previousState = gameState;
+                gameState = 'PAUSED';
+                pauseScreen.classList.add('overlay-screen--active');
+                
+                if (!runVideo.paused) runVideo.pause();
+                if (!attackVideo.paused) attackVideo.pause();
+            }
+        } else {
+            if (gameState === 'PAUSED') {
+                gameState = previousState;
+                pauseScreen.classList.remove('overlay-screen--active');
+                if (gameState === 'ANIMATING') attackVideo.play();
+            }
+        }
+    }
+
+    document.getElementById('btnResumeFS').onclick = () => { enterFullscreenAndRotate(); };
+
+    // --- Joystick ---
     const knob = document.getElementById('joystick-knob');
     let joyActive = false;
     let joyCenter = { x: 0, y: 0 };
@@ -282,37 +362,41 @@
         keys.a = dx < -threshold; keys.d = dx > threshold;
     }
 
-    // --- Tamaños de Canvas ---
+    // --- Tamaños Canvas ---
     attackVideo.addEventListener('loadedmetadata', () => {
-        const aspectRatio = attackVideo.videoWidth / attackVideo.videoHeight;
         attackCanvas.height = baseSpriteHeight; 
-        attackCanvas.width = baseSpriteHeight * aspectRatio; 
+        attackCanvas.width = baseSpriteHeight * (attackVideo.videoWidth / attackVideo.videoHeight); 
     });
 
     const runScale = 0.85;
     const runCanvasHeight = baseSpriteHeight * runScale; 
     runVideo.addEventListener('loadedmetadata', () => {
-        const aspectRatio = runVideo.videoWidth / runVideo.videoHeight;
         runCanvas.height = runCanvasHeight; 
-        runCanvas.width = runCanvasHeight * aspectRatio; 
+        runCanvas.width = runCanvasHeight * (runVideo.videoWidth / runVideo.videoHeight); 
     });
 
-    // --- Menús ---
-    document.getElementById('btnStart').onclick = () => { mainMenu.classList.remove('overlay-screen--active'); startGame(); };
-    document.getElementById('btnRestart').onclick = () => { victoryScreen.classList.remove('overlay-screen--active'); startGame(); };
+    // --- Botones de Menú ---
+    document.getElementById('btnStart').onclick = () => { 
+        mainMenu.classList.remove('overlay-screen--active'); 
+        if (isMobile) enterFullscreenAndRotate();
+        startGame(); 
+    };
+    document.getElementById('btnRestart').onclick = () => { 
+        victoryScreen.classList.remove('overlay-screen--active'); 
+        if (isMobile) enterFullscreenAndRotate();
+        startGame(); 
+    };
 
     function startGame() {
         playerHP = 100; score = 0; scoreText.textContent = score;
         healthFill.style.width = `100%`; healthFill.style.backgroundColor = "var(--color-health)";
         scoreFill.style.width = `0%`;
         pX = window.innerWidth / 2; pY = window.innerHeight / 2;
-        
-        // Colocamos los zombies al iniciar
         zombies.forEach(z => spawnZombieAway(z));
         gameState = 'EXPLORING';
     }
 
-    // --- Bucle Principal ---
+    // --- Bucle ---
     function gameLoop() {
         if (gameState === 'EXPLORING') {
             movePlayer();
@@ -344,24 +428,16 @@
             if (distance > 0) {
                 z.x += (dx / distance) * zombieSpeed;
                 z.y += (dy / distance) * zombieSpeed;
-                
-                // LÓGICA DE DIRECCIÓN:
-                // Si dx > 0, significa que el zorro está a la DERECHA del zombie.
-                // Como la imagen mira a la IZQUIERDA por defecto, debemos invertirla cuando va hacia la derecha.
                 z.facingLeft = dx < 0; 
             }
         });
     }
 
     function updateSprites() {
-        zorroEl.style.left = `${pX}px`;
-        zorroEl.style.top = `${pY}px`;
+        zorroEl.style.left = `${pX}px`; zorroEl.style.top = `${pY}px`;
         zorroEl.style.transform = isFacingLeft ? 'scaleX(-1)' : 'scaleX(1)';
-        
-        // Actualizamos la posición e invertimos el sprite si no mira a la izquierda
         zombies.forEach(z => {
-            z.el.style.left = `${z.x}px`;
-            z.el.style.top = `${z.y}px`;
+            z.el.style.left = `${z.x}px`; z.el.style.top = `${z.y}px`;
             z.el.style.transform = z.facingLeft ? 'scaleX(1)' : 'scaleX(-1)';
         });
     }
@@ -372,7 +448,7 @@
         let frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let data = frame.data;
         for (let i = 0; i < data.length; i += 4) {
-            let r = data[i + 0], g = data[i + 1], b = data[i + 2];
+            let r = data[i], g = data[i + 1], b = data[i + 2];
             if (g > 90 && g > r * 1.3 && g > b * 1.3) data[i + 3] = 0; 
         }
         ctx.putImageData(frame, 0, 0);
@@ -403,11 +479,7 @@
     function checkCollision() {
         for (let i = 0; i < zombies.length; i++) {
             const distance = Math.hypot(pX - zombies[i].x, pY - zombies[i].y);
-            if (distance < 100) {
-                activeZombie = zombies[i];
-                startBattle();
-                break; 
-            }
+            if (distance < 100) { activeZombie = zombies[i]; startBattle(); break; }
         }
     }
 
@@ -416,21 +488,32 @@
         if (!runVideo.paused) runVideo.pause();
         runCanvas.style.display = 'none';
         zorroEl.style.display = 'block';
-        
         joystickZone.style.visibility = 'hidden'; 
-        
-        const uiLeft = Math.min(activeZombie.x + 160, window.innerWidth - 200);
-        const uiTop = Math.max(activeZombie.y - 20, 50);
-        
-        battleUI.style.left = `${uiLeft}px`;
-        battleUI.style.top = `${uiTop}px`;
-        battleUI.classList.add('battle-ui--active');
         
         currentProblem.a = Math.floor(Math.random() * 10) + 1;
         currentProblem.b = Math.floor(Math.random() * 10) + 1;
         currentAnswer = currentProblem.a * currentProblem.b;
         
-        clearInput();
+        clearInput(); 
+
+        battleUI.classList.add('battle-ui--active');
+        
+        const uiWidth = battleUI.offsetWidth;
+        const uiHeight = battleUI.offsetHeight;
+        
+        let uiLeft = pX + (activeZombie.x - pX) / 2 - (uiWidth / 2);
+        let uiTop = Math.min(pY, activeZombie.y) - uiHeight - 10;
+
+        if (uiTop < 60) { 
+            uiTop = Math.max(pY, activeZombie.y) + baseSpriteHeight + 10;
+        }
+
+        const padding = 20;
+        uiLeft = Math.max(padding, Math.min(uiLeft, window.innerWidth - uiWidth - padding));
+        uiTop = Math.max(padding, Math.min(uiTop, window.innerHeight - uiHeight - padding));
+        
+        battleUI.style.left = `${uiLeft}px`; 
+        battleUI.style.top = `${uiTop}px`;
     }
 
     function addDigit(num) { if (playerAnswer.length < 3) { playerAnswer += num; updateDisplay(); } }
@@ -468,7 +551,6 @@
 
         attackVideo.currentTime = 0;
         attackVideo.play();
-        
         loopAttackChromaKey();
     }
 
@@ -510,7 +592,6 @@
         if (activeZombie) { spawnZombieAway(activeZombie); activeZombie = null; }
     }
 
-    // Modificado para que aparezcan justo al borde de la pantalla y no tan lejos
     function spawnZombieAway(zombieObj) {
         const edge = Math.floor(Math.random() * 4);
         if (edge === 0) { zombieObj.x = Math.random() * window.innerWidth; zombieObj.y = -10; }
@@ -522,7 +603,7 @@
         zombieObj.el.style.top = `${zombieObj.y}px`;
     }
 
-    // --- Inputs Numéricos ---
+    // --- Inputs ---
     const layout = [1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, 'OK'];
     layout.forEach(key => {
         const btn = document.createElement('button');
@@ -535,7 +616,7 @@
 
     window.addEventListener('keydown', (e) => {
         if (gameState === 'EXPLORING') {
-            if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
+            keys[e.key] = true;
         } else if (gameState === 'FIGHTING') {
             if (e.key >= '0' && e.key <= '9') addDigit(e.key);
             if (e.key === 'Backspace') removeDigit();
@@ -544,9 +625,7 @@
         }
     });
 
-    window.addEventListener('keyup', (e) => {
-        if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
-    });
+    window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
     requestAnimationFrame(gameLoop);
 </script>
