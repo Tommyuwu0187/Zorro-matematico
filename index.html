@@ -2,679 +2,1128 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chroma Key Studio Pro (Editor Completo)</title>
-    <script src="gif.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zorro vs Zombie Matemático</title>
     <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: #1e1e2e; color: #cdd6f4;
-            padding: 20px; max-width: 1400px; margin: 0 auto;
-        }
-        
-        /* Layout de 3 columnas */
-        .app-layout {
-            display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch;
-        }
-        .side-panel {
-            flex: 1; min-width: 300px; max-width: 350px;
-            display: flex; flex-direction: column; gap: 15px;
-        }
-        .center-panel {
-            flex: 2; min-width: 450px;
-            display: flex; flex-direction: column; gap: 15px;
+        :root {
+            --color-bg: #000000;
+            --color-text: #ffffff;
+            --color-health: #4caf50;
+            --color-warning: #ffeb3b;
+            --color-damage: #f44336;
+            --color-score: #2196f3;
         }
 
-        .box {
-            background: #313244; padding: 15px; border-radius: 12px;
-            display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        body { 
+            margin: 0; 
+            background-color: var(--color-bg); 
+            color: var(--color-text); 
+            font-family: 'Courier New', Courier, monospace; 
+            overflow: hidden; 
+            user-select: none;
+            touch-action: none;
         }
-        .box h3 { margin: 0 0 5px 0; font-size: 15px; color: #89b4fa; border-bottom: 1px solid #45475a; padding-bottom: 5px; }
         
-        .row { display: flex; gap: 10px; align-items: center; justify-content: space-between; font-size: 14px;}
-        .col { display: flex; flex-direction: column; gap: 5px; font-size: 14px; width: 100%;}
-        
-        input[type="file"] { background: #45475a; color: #cdd6f4; border: none; padding: 8px 10px; border-radius: 6px; width: 100%; box-sizing: border-box;}
-        input[type="range"] { width: 100%; }
-
-        button {
-            background: #89b4fa; color: #11111b; border: none; padding: 10px 15px; border-radius: 6px; 
-            cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 5px;
-        }
-        button:hover { background: #b4befe; }
-        
-        #btnConfirmCrop { background: #a6e3a1; } #btnConfirmCrop:hover { background: #94e2d5; }
-        #recordWebMBtn { background: #a6e3a1; } #recordWebMBtn:hover { background: #94e2d5; }
-        .active-btn { background: #f38ba8 !important; color: white !important; }
-        
-        /* Controles de color */
-        .color-tools { display: flex; gap: 10px; justify-content: space-between; align-items: center; }
-        .preset-colors { display: flex; gap: 8px; }
-        .c-btn { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid #585b70; transition: transform 0.2s; }
-        .c-btn:hover { transform: scale(1.1); }
-        
-        #nativeColorPicker {
-            -webkit-appearance: none; -moz-appearance: none; appearance: none;
-            width: 40px; height: 40px; background: transparent; border: none; cursor: pointer; padding: 0;
-        }
-        #nativeColorPicker::-webkit-color-swatch { border-radius: 8px; border: 2px solid #a6adc8; }
-        #nativeColorPicker::-moz-color-swatch { border-radius: 8px; border: 2px solid #a6adc8; }
-        
-        #btnEyedropper { width: auto; padding: 10px; }
-
-        /* Canvas en el centro */
-        .canvas-container {
-            position: relative; background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAOklEQVQYV2NkYGAwYcSPAfL/////g/gM+OQZ8GvAZhg2w6jhEQ9wOAwHgzEQHw09T0OOp2HkaTgehgEACQ86HwHnLwAAAABJRU5ErkJggg==') repeat;
-            border: 2px solid #45475a; border-radius: 12px; overflow: hidden;
-            display: flex; justify-content: center; align-items: center; min-height: 300px; flex: 1;
-        }
-        #previewCanvas { max-width: 100%; max-height: 60vh; display: block; touch-action: none; cursor: pointer; }
-        
-        /* Diseño de la Línea de Tiempo */
-        .timeline-container {
-            background: #313244; padding: 15px; border-radius: 12px; user-select: none;
-        }
-        .timeline-track {
-            position: relative; height: 35px; background: #1e1e2e; border-radius: 6px; margin-top: 5px; cursor: pointer;
-        }
-        .timeline-range {
-            position: absolute; top: 0; bottom: 0; background: rgba(137, 180, 250, 0.2);
-            border-top: 2px solid #89b4fa; border-bottom: 2px solid #89b4fa; pointer-events: none;
-        }
-        .timeline-handle {
-            position: absolute; top: 0; width: 14px; height: 100%; background: #89b4fa;
-            transform: translateX(-50%); border-radius: 4px; z-index: 10; pointer-events: none;
-        }
-        .timeline-handle::after {
-            content: '||'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: #1e1e2e; font-size: 8px; font-weight: bold; pointer-events: none;
-        }
-        .timeline-playhead {
-            position: absolute; top: -5px; bottom: -5px; width: 2px; background: #f38ba8;
-            transform: translateX(-50%); z-index: 20; pointer-events: none;
-        }
-        .timeline-playhead::before {
-            content: ''; position: absolute; top: 0; left: -5px;
-            border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #f38ba8;
+        /* Fondo permanente del juego */
+        .game-area {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: url('SPRITES/background.jpg') no-repeat center center;
+            background-size: cover;
         }
 
-        #status { text-align: center; font-style: italic; color: #a6adc8; display: block; margin-top: 10px; }
+        /* --- Pantallas Superpuestas --- */
+        .overlay-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            color: white;
+            text-align: center;
+        }
+
+        .overlay-screen--active { display: flex; }
+        .overlay-screen h1 { font-size: 3rem; color: #ffcc00; margin-bottom: 10px; text-shadow: 2px 2px 0 #000;}
+        .overlay-screen p { font-size: 1.2rem; margin-bottom: 30px; padding: 0 20px;}
+
+        .btn-menu {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            font-family: inherit;
+            color: #000;
+            background: #ffcc00;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            min-width: 250px;
+            outline: none;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+
+        #rotateDevice { display: none; z-index: 9999; background: #000; }
+        @media screen and (orientation: portrait) {
+            #rotateDevice { display: flex !important; }
+        }
+
+        /* Botones estilo Pausa/Configuración (Pequeños) */
+        .btn-small-icon {
+            background-color: #333; color: white;
+            border: 2px solid #fff; border-radius: 8px;
+            font-size: 1.5rem; padding: 5px 15px; cursor: pointer;
+            box-shadow: 2px 2px 0 #000;
+            outline: none;
+        }
+        .btn-small-icon:active { background-color: #555; transform: scale(0.95); }
+        
+        /* Enfoque de Navegación por Teclado/Mando */
+        .ui-focused {
+            outline: 4px solid #ffcc00 !important;
+            box-shadow: 0 0 15px #ffcc00 !important;
+            transform: scale(1.08) !important;
+        }
+        
+        /* Posición para la esquina superior derecha en los menús */
+        .corner-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        /* --- Menú de Configuración --- */
+        .settings-box {
+            background: #222;
+            padding: 30px;
+            border-radius: 12px;
+            border: 2px solid #fff;
+            width: 85%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+
+        .settings-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            flex-grow: 1;
+            gap: 5px;
+        }
+
+        .slider-container label { font-size: 1.1rem; font-weight: bold; }
+        .slider-container input[type="range"] { width: 100%; cursor: pointer; outline: none; }
+
+        .btn-mute {
+            background: #444; border: 2px solid #fff; border-radius: 8px;
+            color: white; font-size: 1.5rem; cursor: pointer;
+            box-shadow: 2px 2px 0 #000; display: flex; align-items: center; justify-content: center;
+            width: 50px; height: 50px; flex-shrink: 0; outline: none;
+        }
+        .btn-mute:active { transform: scale(0.95); background: #666; }
+
+        /* --- Joystick --- */
+        #joystick-zone {
+            display: none; 
+            position: absolute;
+            bottom: 40px; left: 40px;
+            width: 140px; height: 140px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            z-index: 50;
+        }
+
+        #joystick-knob {
+            position: absolute;
+            top: 40px; left: 40px;
+            width: 60px; height: 60px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* --- SPRITES Y VIDEOS --- */
+        .sprite { 
+            position: absolute; 
+            width: 140px; height: 140px; 
+            background-size: contain; 
+            background-position: center;
+            background-repeat: no-repeat;
+            image-rendering: pixelated; 
+        }
+        
+        #zorro { background-image: url('SPRITES/zorro.png'); z-index: 10; }
+        .zombie-sprite { background-image: url('SPRITES/zombie.png'); z-index: 5; }
+        
+        .anim-video {
+            position: absolute;
+            height: 140px;
+            width: auto;
+            object-fit: contain;
+            display: none;
+            pointer-events: none;
+            image-rendering: pixelated;
+        }
+        #runVideo { z-index: 10; height: 119px; } 
+        #attackVideo { z-index: 15; } 
+
+        /* --- UI HUD --- */
+        .hud {
+            position: absolute; top: 20px; left: 20px; right: 20px;
+            z-index: 20; display: flex; justify-content: space-between; align-items: flex-start;
+        }
+        .hud__stats-group { display: flex; gap: 30px; }
+        .hud__stat { display: flex; align-items: center; gap: 10px; }
+        .hud__stat h2 { margin: 0; font-size: 1.5rem; text-shadow: 2px 2px 0 #000; }
+        .hud__bar { width: 150px; height: 25px; background-color: #333; border: 2px solid #fff; border-radius: 4px; overflow: hidden; }
+        .hud__fill--health { width: 100%; height: 100%; background-color: var(--color-health); transition: width 0.3s ease; }
+        .hud__fill--score { width: 0%; height: 100%; background-color: var(--color-score); transition: width 0.3s ease; }
+
+        /* --- UI BATALLA --- */
+        .battle-ui { 
+            display: none; 
+            position: absolute; 
+            z-index: 100; 
+            align-items: center;
+            gap: 20px; 
+        }
+        .battle-ui--active { display: flex; } 
+        .battle-ui--error { animation: shake 0.4s; }
+        
+        .battle-ui__content {
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
+        }
+
+        .battle-ui__timer {
+            width: 100%; height: 10px; background: #333;
+            border-radius: 5px; border: 2px solid #fff; overflow: hidden;
+            box-shadow: 2px 2px 0 #000;
+        }
+        
+        .battle-ui__timer-fill {
+            width: 100%; height: 100%; background: var(--color-health);
+        }
+
+        .battle-ui__math { 
+            position: relative; 
+            font-size: 3rem; color: #ffffff; margin: 0;
+            white-space: nowrap; text-shadow: 2px 2px 0 #000;
+        }
+        
+        .keypad {
+            display: grid; 
+            grid-template-columns: repeat(3, 50px); gap: 8px;
+            background: #333333; padding: 12px; border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+        }
+        .keypad__btn { 
+            padding: 10px; font-size: 20px; font-weight: bold; 
+            cursor: pointer; border: none; border-radius: 6px; 
+            background: #666666; color: #ffffff; outline: none;
+            transition: transform 0.1s ease;
+        }
+        .keypad__btn:active { background: #888888; }
+        .keypad__btn--action { background: #4caf50; }
+        .keypad__btn--clear { background: var(--color-damage); }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25%, 75% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+        }
     </style>
 </head>
 <body>
 
-    <h2 style="margin-top: 0;">Chroma Key Studio Pro</h2>
-    
-    <div class="app-layout">
+<div id="rotateDevice" class="overlay-screen">
+    <h1>Gira tu dispositivo</h1>
+    <p>Este juego se juega mejor en horizontal.</p>
+    <button id="btnForceRotate" class="btn-menu">🔄 Rotar Pantalla</button>
+</div>
+
+<!-- Menú Principal -->
+<div id="mainMenu" class="overlay-screen overlay-screen--active">
+    <button id="btnSettingsMain" class="btn-small-icon corner-btn">⚙️</button>
+    <h1>Zorro Matemático</h1>
+    <p>Resuelve las operaciones antes de que acabe el tiempo.</p>
+    <button id="btnStart" class="btn-menu">▶ Iniciar Juego</button>
+</div>
+
+<!-- Menú de Pausa -->
+<div id="userPauseScreen" class="overlay-screen">
+    <button id="btnSettingsPause" class="btn-small-icon corner-btn">⚙️</button>
+    <h1>Juego Pausado</h1>
+    <button id="btnUserResume" class="btn-menu">▶ Continuar</button>
+</div>
+
+<!-- Menú de Configuración de Audio -->
+<div id="settingsScreen" class="overlay-screen">
+    <div class="settings-box">
+        <h2 style="margin-top:0; text-align:center; color:#ffcc00;">Ajustes de Audio</h2>
         
-        <div class="side-panel">
-            <div class="box">
-                <h3>1. Origen y Geometría</h3>
-                <input type="file" id="videoUpload" accept="video/mp4" />
-                <div class="row">
-                    <button id="btnToggleCrop">✂️ Recortar Área</button>
-                    <button id="btnConfirmCrop" style="display:none;">✅ Confirmar Recorte</button>
-                </div>
-                <div class="row" style="justify-content: flex-start; gap: 15px;">
-                    <label style="cursor:pointer;"><input type="checkbox" id="flipH"> Espejo (↔)</label>
-                    <label style="cursor:pointer;"><input type="checkbox" id="flipV"> Voltear (↕)</label>
-                </div>
-            </div>
-
-            <div class="box">
-                <h3>2. Velocidad de Reproducción</h3>
-                <div class="col">
-                    <div class="row">
-                        <span>⏱️ Velocidad: <b id="lblSpeed">1.00x</b></span>
-                        <button id="btnResetSpeed" style="width: auto; padding: 4px 10px; font-size: 12px; background: #585b70; color: #cdd6f4;">↺ Restablecer</button>
-                    </div>
-                    <input type="range" id="playbackSpeed" min="0.25" max="3" value="1" step="0.25">
-                </div>
-            </div>
-        </div>
-
-        <div class="center-panel">
-            <div class="canvas-container" id="canvasContainer">
-                <canvas id="previewCanvas"></canvas>
-            </div>
-            
-            <div class="timeline-container">
-                <div class="row" style="margin-bottom: 5px;">
-                    <span style="font-weight: bold; color: #cdd6f4;">Línea de Tiempo (Edición)</span>
-                    <b id="lblTime" style="color: #a6adc8;">0.0s / 0.0s</b>
-                </div>
-                <div class="row" style="font-size: 12px; justify-content: space-between; margin-bottom: 5px;">
-                    <span>Punto de Entrada: <span id="lblStart" style="color: #89b4fa; font-weight:bold;">0.0s</span></span>
-                    <span>Punto de Salida: <span id="lblEnd" style="color: #89b4fa; font-weight:bold;">0.0s</span></span>
-                </div>
-                
-                <div class="timeline-track" id="timelineTrack">
-                    <div class="timeline-range" id="timelineRange"></div>
-                    <div class="timeline-handle" id="handleStart"></div>
-                    <div class="timeline-handle" id="handleEnd"></div>
-                    <div class="timeline-playhead" id="playhead"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="side-panel">
-            <div class="box">
-                <h3>3. Transparencia (Chroma)</h3>
-                <div class="color-tools">
-                    <div class="preset-colors">
-                        <div class="c-btn" style="background:#00ff00" onclick="setPreset('green', '#00ff00')" title="Verde"></div>
-                        <div class="c-btn" style="background:#0000ff" onclick="setPreset('blue', '#0000ff')" title="Azul"></div>
-                        <div class="c-btn" style="background:#ff0000" onclick="setPreset('red', '#ff0000')" title="Rojo"></div>
-                    </div>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="color" id="nativeColorPicker" value="#00ff00" title="Selector Nativo">
-                        <button id="btnEyedropper" title="Usar Gotero">💉</button>
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="row"><span>Fuerza / Tolerancia:</span> <b id="tolVal">50</b></div>
-                    <input type="range" id="tolerance" min="0" max="200" value="50">
-                </div>
-            </div>
-
-            <div class="box">
-                <h3>4. Exportación Automática</h3>
-                <button id="recordGifBtn">Grabar a GIF</button>
-                <button id="recordWebMBtn">Grabar a WebM (Recomendado)</button>
-                <span id="status">Sube un video para comenzar.</span>
+        <div class="settings-row">
+            <button id="btnMuteMusic" class="btn-mute">🔊</button>
+            <div class="slider-container">
+                <label for="musicVol">Música: <span id="musicVolLabel">20%</span></label>
+                <input type="range" id="musicVol" min="0" max="1" step="0.1" value="0.2">
             </div>
         </div>
         
+        <div class="settings-row">
+            <button id="btnMuteSfx" class="btn-mute">🔊</button>
+            <div class="slider-container">
+                <label for="sfxVol">Efectos (SFX): <span id="sfxVolLabel">50%</span></label>
+                <input type="range" id="sfxVol" min="0" max="1" step="0.1" value="0.5">
+            </div>
+        </div>
+
+        <button id="btnBackSettings" class="btn-menu" style="width:100%; min-width:0; margin-top:15px; background: #fff; color: #000;">✔ Aceptar y Volver</button>
+    </div>
+</div>
+
+<div id="pauseScreen" class="overlay-screen">
+    <h1>Pantalla Completa Perdida</h1>
+    <p>Has salido del modo pantalla completa.</p>
+    <button id="btnResumeFS" class="btn-menu">🔲 Volver a Pantalla Completa</button>
+</div>
+
+<div id="victoryScreen" class="overlay-screen">
+    <h1>¡Nivel Completado!</h1>
+    <p>Has conseguido los 200 puntos.</p>
+    <button id="btnRestart" class="btn-menu">🔄 Volver a Jugar</button>
+</div>
+
+<div class="game-area" id="gameArea">
+    <div class="hud">
+        <div class="hud__stats-group">
+            <div class="hud__stat">
+                <h2>HP:</h2>
+                <div class="hud__bar"><div class="hud__fill--health" id="healthFill"></div></div>
+            </div>
+            <div class="hud__stat">
+                <h2>PTS: <span id="scoreText">0</span></h2>
+                <div class="hud__bar"><div class="hud__fill--score" id="scoreFill"></div></div>
+            </div>
+        </div>
+        <button id="btnPause" class="btn-small-icon">⏸</button>
     </div>
 
-    <video id="videoSource" style="display:none;" muted playsinline loop autoplay></video>
-    <canvas id="renderCanvas" style="display:none;"></canvas>
+    <div id="joystick-zone">
+        <div id="joystick-knob"></div>
+    </div>
 
-    <script>
-        const video = document.getElementById('videoSource');
-        const previewCanvas = document.getElementById('previewCanvas');
-        const ctxPreview = previewCanvas.getContext('2d', { willReadFrequently: true });
+    <!-- Sprites y Videos WebM -->
+    <div id="zorro" class="sprite"></div>
+    <video id="runVideo" class="anim-video" src="SPRITES/correr.webm" muted loop playsinline></video>
+    <video id="attackVideo" class="anim-video" src="SPRITES/ataque.webm" muted playsinline></video>
+    
+    <div id="zombie1" class="sprite zombie-sprite"></div>
+    <div id="zombie2" class="sprite zombie-sprite"></div>
+    
+    <div id="battleUI" class="battle-ui">
+        <div class="battle-ui__content">
+            <div class="battle-ui__timer"><div class="battle-ui__timer-fill" id="timerFill"></div></div>
+            <h2 class="battle-ui__math" id="displayMath">2 X 5 = ?</h2>
+        </div>
+        <div class="keypad" id="keypad"></div>
+    </div>
+</div>
+
+<script>
+    const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(navigator.userAgent.toLowerCase());
+    const keypadEl = document.getElementById('keypad');
+    const joystickZone = document.getElementById('joystick-zone');
+    
+    if (isMobile) {
+        joystickZone.style.display = 'block';
+    }
+
+    const gameArea = document.getElementById('gameArea');
+    const zorroEl = document.getElementById('zorro');
+    const runVideo = document.getElementById('runVideo');
+    const attackVideo = document.getElementById('attackVideo');
+
+    const battleUI = document.getElementById('battleUI');
+    const displayMath = document.getElementById('displayMath');
+    const timerFill = document.getElementById('timerFill');
+    const healthFill = document.getElementById('healthFill');
+    const scoreFill = document.getElementById('scoreFill');
+    const scoreText = document.getElementById('scoreText');
+
+    const mainMenu = document.getElementById('mainMenu');
+    const userPauseScreen = document.getElementById('userPauseScreen');
+    const settingsScreen = document.getElementById('settingsScreen');
+    const pauseScreen = document.getElementById('pauseScreen');
+    const victoryScreen = document.getElementById('victoryScreen');
+
+    let gameState = 'MENU'; 
+    let previousState = '';
+    let screenBeforeSettings = null; 
+    
+    let playerHP = 100;
+    let score = 0;
+    const maxScore = 200;
+    
+    const maxBattleTime = 8000;
+    let battleTimeLeft = maxBattleTime;
+    
+    let pX = window.innerWidth / 2, pY = window.innerHeight * 0.7;
+    let isFacingLeft = false; 
+    let isMoving = false;
+    
+    const playerSpeed = 5;
+    const zombieSpeed = 1.5; 
+    const baseSpriteHeight = 140;
+
+    const zombies = [
+        { el: document.getElementById('zombie1'), x: 0, y: 0, facingLeft: true },
+        { el: document.getElementById('zombie2'), x: 0, y: 0, facingLeft: true }
+    ];
+    let activeZombie = null; 
+    const keys = { w: false, a: false, s: false, d: false };
+    let currentProblem = { a: 0, b: 0 };
+    let currentAnswer = 0;
+    let playerAnswer = "";
+
+    // --- SISTEMA DE AUDIO (Música 20%, SFX 50%) ---
+    const bgMusic = new Audio('SPRITES/audio.mp3');
+    bgMusic.loop = true;
+    const swordSound = new Audio('SPRITES/swordAtack.mp3');
+    const zombieSound = new Audio('SPRITES/zombieAtack(punch).mp3');
+
+    const musicVolInput = document.getElementById('musicVol');
+    const sfxVolInput = document.getElementById('sfxVol');
+    const musicVolLabel = document.getElementById('musicVolLabel');
+    const sfxVolLabel = document.getElementById('sfxVolLabel');
+    
+    const btnMuteMusic = document.getElementById('btnMuteMusic');
+    const btnMuteSfx = document.getElementById('btnMuteSfx');
+    
+    let isMusicMuted = false;
+    let isSfxMuted = false;
+    let savedMusicVol = 0.2;
+    let savedSfxVol = 0.5;
+    let wasMusicPlayingBeforeBlur = false;
+
+    bgMusic.volume = savedMusicVol;
+    swordSound.volume = savedSfxVol;
+    zombieSound.volume = savedSfxVol;
+
+    // Mutear Música
+    btnMuteMusic.addEventListener('click', () => {
+        isMusicMuted = !isMusicMuted;
+        btnMuteMusic.textContent = isMusicMuted ? "🔇" : "🔊";
+        bgMusic.volume = isMusicMuted ? 0 : savedMusicVol;
+    });
+
+    // Mutear SFX
+    btnMuteSfx.addEventListener('click', () => {
+        isSfxMuted = !isSfxMuted;
+        btnMuteSfx.textContent = isSfxMuted ? "🔇" : "🔊";
+        swordSound.volume = isSfxMuted ? 0 : savedSfxVol;
+        zombieSound.volume = isSfxMuted ? 0 : savedSfxVol;
+    });
+
+    // Barra Música
+    musicVolInput.addEventListener('input', (e) => {
+        savedMusicVol = parseFloat(e.target.value);
+        musicVolLabel.textContent = `${Math.round(savedMusicVol * 100)}%`;
+        if (isMusicMuted) {
+            isMusicMuted = false;
+            btnMuteMusic.textContent = "🔊";
+        }
+        bgMusic.volume = savedMusicVol;
+    });
+
+    // Barra SFX
+    sfxVolInput.addEventListener('input', (e) => {
+        savedSfxVol = parseFloat(e.target.value);
+        sfxVolLabel.textContent = `${Math.round(savedSfxVol * 100)}%`;
+        if (isSfxMuted) {
+            isSfxMuted = false;
+            btnMuteSfx.textContent = "🔊";
+        }
+        swordSound.volume = savedSfxVol;
+        zombieSound.volume = savedSfxVol;
+    });
+
+    function playSfx(audioObj) {
+        if (!isSfxMuted && savedSfxVol > 0) {
+            audioObj.currentTime = 0; 
+            audioObj.play().catch(e => console.log("SFX bloqueado:", e));
+        }
+    }
+
+    // --- PAUSAR MÚSICA AL PERDER EL FOCO DE LA PANTALLA ---
+    function handleWindowBlur() {
+        if (!bgMusic.paused) {
+            bgMusic.pause();
+            wasMusicPlayingBeforeBlur = true;
+        }
+    }
+
+    function handleWindowFocus() {
+        if (wasMusicPlayingBeforeBlur && (gameState === 'EXPLORING' || gameState === 'FIGHTING' || gameState === 'ANIMATING')) {
+            if (!isMusicMuted && savedMusicVol > 0) {
+                bgMusic.play().catch(e => console.log(e));
+            }
+        }
+        wasMusicPlayingBeforeBlur = false;
+    }
+
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            handleWindowBlur();
+        } else {
+            handleWindowFocus();
+        }
+    });
+
+    // --- NAVEGACIÓN MATRICIAL 2D Y SISTEMA DE FOCO ---
+    let focusableElements = [];
+    let currentFocusIndex = 0;
+
+    function refreshFocusableElements() {
+        const activeScreen = document.querySelector('.overlay-screen--active');
+        if (activeScreen) {
+            focusableElements = Array.from(activeScreen.querySelectorAll('button, input[type="range"]'));
+        } else if (gameState === 'FIGHTING') {
+            focusableElements = Array.from(keypadEl.querySelectorAll('button'));
+        } else {
+            focusableElements = [];
+        }
+        if (currentFocusIndex >= focusableElements.length) currentFocusIndex = 0;
+        updateFocusVisuals();
+    }
+
+    function updateFocusVisuals() {
+        document.querySelectorAll('.ui-focused').forEach(el => el.classList.remove('ui-focused'));
+        if (focusableElements.length > 0 && focusableElements[currentFocusIndex]) {
+            focusableElements[currentFocusIndex].classList.add('ui-focused');
+        }
+    }
+
+    // Navegación bidimensional completa para Menús y Teclado Numérico (3x4)
+    function navigateGrid(direction) {
+        if (focusableElements.length === 0) return;
+
+        const isMenu = document.querySelector('.overlay-screen--active');
+
+        if (isMenu) {
+            // Menú vertical / ajustes
+            if (direction === 'UP' || direction === 'LEFT') {
+                if (direction === 'LEFT' && focusableElements[currentFocusIndex]?.tagName === 'INPUT') {
+                    adjustFocusedSlider(-0.1);
+                    return;
+                }
+                currentFocusIndex = (currentFocusIndex - 1 + focusableElements.length) % focusableElements.length;
+            } else if (direction === 'DOWN' || direction === 'RIGHT') {
+                if (direction === 'RIGHT' && focusableElements[currentFocusIndex]?.tagName === 'INPUT') {
+                    adjustFocusedSlider(0.1);
+                    return;
+                }
+                currentFocusIndex = (currentFocusIndex + 1) % focusableElements.length;
+            }
+        } else if (gameState === 'FIGHTING') {
+            // Matriz 3x4 del Keypad Matemático
+            const col = currentFocusIndex % 3;
+            const row = Math.floor(currentFocusIndex / 3);
+
+            if (direction === 'UP' && row > 0) currentFocusIndex -= 3;
+            else if (direction === 'DOWN' && row < 3) currentFocusIndex += 3;
+            else if (direction === 'LEFT' && col > 0) currentFocusIndex -= 1;
+            else if (direction === 'RIGHT' && col < 2) currentFocusIndex += 1;
+        }
+
+        updateFocusVisuals();
+    }
+
+    function activateFocused() {
+        if (focusableElements.length > 0 && focusableElements[currentFocusIndex]) {
+            focusableElements[currentFocusIndex].click();
+        }
+    }
+
+    function adjustFocusedSlider(delta) {
+        if (focusableElements.length > 0 && focusableElements[currentFocusIndex]) {
+            const el = focusableElements[currentFocusIndex];
+            if (el.tagName === 'INPUT' && el.type === 'range') {
+                let newVal = parseFloat(el.value) + delta;
+                newVal = Math.max(parseFloat(el.min), Math.min(parseFloat(el.max), newVal));
+                el.value = newVal;
+                el.dispatchEvent(new Event('input'));
+            }
+        }
+    }
+
+    // --- NAVEGACIÓN DE MENÚS (Configuración) ---
+    document.getElementById('btnSettingsMain').addEventListener('click', () => {
+        mainMenu.classList.remove('overlay-screen--active');
+        settingsScreen.classList.add('overlay-screen--active');
+        screenBeforeSettings = mainMenu;
+        currentFocusIndex = 0;
+        refreshFocusableElements();
+    });
+
+    document.getElementById('btnSettingsPause').addEventListener('click', () => {
+        userPauseScreen.classList.remove('overlay-screen--active');
+        settingsScreen.classList.add('overlay-screen--active');
+        screenBeforeSettings = userPauseScreen;
+        currentFocusIndex = 0;
+        refreshFocusableElements();
+    });
+
+    document.getElementById('btnBackSettings').addEventListener('click', () => {
+        settingsScreen.classList.remove('overlay-screen--active');
+        if (screenBeforeSettings) {
+            screenBeforeSettings.classList.add('overlay-screen--active');
+        }
+        currentFocusIndex = 0;
+        refreshFocusableElements();
+    });
+
+    // --- FULLSCREEN Y ROTACIÓN ---
+    async function enterFullscreenAndRotate() {
+        try {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) { await elem.requestFullscreen(); } 
+            else if (elem.webkitRequestFullscreen) { await elem.webkitRequestFullscreen(); }
+            if (screen.orientation && screen.orientation.lock) { await screen.orientation.lock('landscape'); }
+        } catch (err) {}
+    }
+
+    document.getElementById('btnForceRotate').addEventListener('click', enterFullscreenAndRotate);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+    function handleFullscreenChange() {
+        if (!isMobile) return; 
+        const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
         
-        const renderCanvas = document.getElementById('renderCanvas');
-        const ctxRender = renderCanvas.getContext('2d', { willReadFrequently: true });
+        if (!isFullscreen) {
+            if (gameState === 'EXPLORING' || gameState === 'FIGHTING' || gameState === 'ANIMATING') {
+                previousState = gameState;
+                gameState = 'PAUSED_FS';
+                pauseScreen.classList.add('overlay-screen--active');
+                if (!runVideo.paused) runVideo.pause();
+                if (!attackVideo.paused) attackVideo.pause();
+                refreshFocusableElements();
+            }
+        } else {
+            if (gameState === 'PAUSED_FS') {
+                gameState = previousState;
+                pauseScreen.classList.remove('overlay-screen--active');
+                if (gameState === 'ANIMATING') attackVideo.play();
+                if (gameState === 'EXPLORING' && isMoving) runVideo.play();
+                lastTime = performance.now(); 
+                refreshFocusableElements();
+            }
+        }
+    }
+    document.getElementById('btnResumeFS').onclick = () => { enterFullscreenAndRotate(); };
+
+    // --- PAUSA MANUAL ---
+    function togglePauseGame() {
+        if (gameState === 'MENU' || gameState === 'GAMEOVER' || gameState === 'VICTORY' || gameState === 'TIMEOUT') return;
         
-        const tolInput = document.getElementById('tolerance');
-        const flipH = document.getElementById('flipH');
-        const flipV = document.getElementById('flipV');
-        const statusTxt = document.getElementById('status');
+        if (gameState === 'USER_PAUSED') {
+            gameState = previousState;
+            userPauseScreen.classList.remove('overlay-screen--active');
+            if (isMobile) enterFullscreenAndRotate();
+            if (gameState === 'ANIMATING') attackVideo.play();
+            if (gameState === 'EXPLORING' && isMoving) runVideo.play();
+            lastTime = performance.now(); 
+        } else {
+            previousState = gameState;
+            gameState = 'USER_PAUSED';
+            userPauseScreen.classList.add('overlay-screen--active');
+            if (!runVideo.paused) runVideo.pause();
+            if (!attackVideo.paused) attackVideo.pause();
+        }
+        currentFocusIndex = 0;
+        refreshFocusableElements();
+    }
 
-        const btnToggleCrop = document.getElementById('btnToggleCrop');
-        const btnConfirmCrop = document.getElementById('btnConfirmCrop');
-        const btnEyedropper = document.getElementById('btnEyedropper');
-        const nativePicker = document.getElementById('nativeColorPicker');
+    document.getElementById('btnPause').addEventListener('click', togglePauseGame);
+    document.getElementById('btnUserResume').addEventListener('click', togglePauseGame);
+
+    // --- Joystick Táctil ---
+    const knob = document.getElementById('joystick-knob');
+    let joyActive = false;
+    let joyCenter = { x: 0, y: 0 };
+
+    joystickZone.addEventListener('touchstart', (e) => {
+        joyActive = true;
+        const rect = joystickZone.getBoundingClientRect();
+        joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        handleJoyMove(e.touches[0]);
+    });
+    joystickZone.addEventListener('touchmove', (e) => { if (joyActive) handleJoyMove(e.touches[0]); });
+    joystickZone.addEventListener('touchend', () => {
+        joyActive = false; knob.style.transform = `translate(0px, 0px)`;
+        keys.w = keys.a = keys.s = keys.d = false;
+    });
+
+    function handleJoyMove(touch) {
+        let dx = touch.clientX - joyCenter.x;
+        let dy = touch.clientY - joyCenter.y;
+        const maxDist = 40; 
+        const dist = Math.hypot(dx, dy);
+        if (dist > maxDist) { dx = (dx / dist) * maxDist; dy = (dy / dist) * maxDist; }
+        knob.style.transform = `translate(${dx}px, ${dy}px)`;
         
-        const playbackSpeed = document.getElementById('playbackSpeed');
-        const btnResetSpeed = document.getElementById('btnResetSpeed');
+        const threshold = 15;
+        keys.w = dy < -threshold; keys.s = dy > threshold;
+        keys.a = dx < -threshold; keys.d = dx > threshold;
+    }
 
-        let isRecordingGif = false, isRecordingWebM = false;
-        let gif, mediaRecorder, recordedChunks = [];
-        let isUserPaused = false; // Variable para rastrear la pausa voluntaria
+    // --- JUEGO PRINCIPAL ---
+    document.getElementById('btnStart').onclick = () => { 
+        mainMenu.classList.remove('overlay-screen--active'); 
+        if (isMobile) enterFullscreenAndRotate();
+        startGame(); 
+    };
+    
+    document.getElementById('btnRestart').onclick = () => { 
+        victoryScreen.classList.remove('overlay-screen--active'); 
+        if (isMobile) enterFullscreenAndRotate();
+        startGame(); 
+    };
 
-        // Geometría
-        let isCroppingMode = false;
-        let crop = { x: 0, y: 0, w: 100, h: 100 };
-        let isDragging = false, dragAction = null; 
-        let startPos = { x: 0, y: 0 }, startCrop = { ...crop };
-        const handleSize = 20;
+    function startGame() {
+        if (!isMusicMuted && savedMusicVol > 0) {
+            bgMusic.play().catch(e => console.log("Audio bloqueado:", e));
+        }
 
-        // Color
-        let currentMode = 'green';
-        let customColor = { r: 0, g: 255, b: 0 };
-        let isEyedropperActive = false;
-        let pendingColorPick = null;
+        playerHP = 100; score = 0; scoreText.textContent = score;
+        healthFill.style.width = `100%`; healthFill.style.backgroundColor = "var(--color-health)";
+        scoreFill.style.width = `0%`;
+        pX = window.innerWidth / 2; 
+        pY = window.innerHeight * 0.7; 
+        zombies.forEach(z => spawnZombieAway(z));
+        lastTime = performance.now();
+        gameState = 'EXPLORING';
+        refreshFocusableElements();
+    }
 
-        // --- LÓGICA DE LA LÍNEA DE TIEMPO INTERACTIVA ---
-        let trimStartTime = 0;
-        let trimEndTime = 100;
-        let videoDuration = 0.1;
-        let isDraggingTimeline = null; 
+    let lastTime = 0;
+
+    function gameLoop(timestamp) {
+        let deltaTime = timestamp - lastTime;
+        lastTime = timestamp;
         
-        let dragStartOffsetTime = 0;
-        let initialTrimStart = 0;
-        let initialTrimEnd = 0;
+        if (deltaTime > 100) deltaTime = 16; 
 
-        const track = document.getElementById('timelineTrack');
-        const tRange = document.getElementById('timelineRange');
-        const hStart = document.getElementById('handleStart');
-        const hEnd = document.getElementById('handleEnd');
-        const playhead = document.getElementById('playhead');
+        // Polling de mando
+        pollGamepad();
 
-        function updateTimelineUI() {
-            if (!videoDuration || isNaN(videoDuration)) return;
-            const startPct = (trimStartTime / videoDuration) * 100;
-            const endPct = (trimEndTime / videoDuration) * 100;
-            const currentPct = (video.currentTime / videoDuration) * 100;
+        if (gameState === 'EXPLORING') {
+            movePlayer();
+            moveZombies();
+            updateSprites();
+            handleRunningAnimation();
+            checkCollision();
+        } else if (gameState === 'FIGHTING') {
+            battleTimeLeft -= deltaTime;
+            updateTimerUI();
 
-            hStart.style.left = startPct + '%';
-            hEnd.style.left = endPct + '%';
-            tRange.style.left = startPct + '%';
-            tRange.style.width = Math.max(0, endPct - startPct) + '%';
-            playhead.style.left = currentPct + '%';
-
-            document.getElementById('lblStart').innerText = trimStartTime.toFixed(1) + 's';
-            document.getElementById('lblEnd').innerText = trimEndTime.toFixed(1) + 's';
-            document.getElementById('lblTime').innerText = video.currentTime.toFixed(1) + 's / ' + videoDuration.toFixed(1) + 's';
+            if (battleTimeLeft <= 0) {
+                triggerTimeoutAttack();
+            }
         }
+        
+        requestAnimationFrame(gameLoop);
+    }
 
-        function getTrackTime(e) {
-            const rect = track.getBoundingClientRect();
-            let x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-            return (x / rect.width) * videoDuration;
+    // --- CONTROL POR MANDO (GAMEPAD API) ---
+    let lastGpNavTime = 0;
+    const GP_NAV_COOLDOWN = 180;
+    let prevGpButtons = {};
+
+    function pollGamepad() {
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
+        if (!gp) return;
+
+        const now = performance.now();
+
+        // Botón Start / Select (Pausa)
+        if (gp.buttons[9]?.pressed && !prevGpButtons.btnStart) {
+            if (gameState === 'EXPLORING' || gameState === 'USER_PAUSED') {
+                togglePauseGame();
+            }
         }
+        prevGpButtons.btnStart = gp.buttons[9]?.pressed;
 
-        track.addEventListener('pointerdown', (e) => {
-            if (!video.src || videoDuration <= 0.1) return;
-            track.setPointerCapture(e.pointerId);
+        // Movimiento de exploración con Mando
+        if (gameState === 'EXPLORING') {
+            const axisX = gp.axes[0];
+            const axisY = gp.axes[1];
+            const dUp = gp.buttons[12]?.pressed;
+            const dDown = gp.buttons[13]?.pressed;
+            const dLeft = gp.buttons[14]?.pressed;
+            const dRight = gp.buttons[15]?.pressed;
+
+            keys.w = axisY < -0.4 || dUp;
+            keys.s = axisY > 0.4 || dDown;
+            keys.a = axisX < -0.4 || dLeft;
+            keys.d = axisX > 0.4 || dRight;
+        } else {
+            // Navegación por menús y keypad con Mando
+            const axisX = gp.axes[0];
+            const axisY = gp.axes[1];
+            const dUp = gp.buttons[12]?.pressed;
+            const dDown = gp.buttons[13]?.pressed;
+            const dLeft = gp.buttons[14]?.pressed;
+            const dRight = gp.buttons[15]?.pressed;
+
+            const isUp = axisY < -0.5 || dUp;
+            const isDown = axisY > 0.5 || dDown;
+            const isLeft = axisX < -0.5 || dLeft;
+            const isRight = axisX > 0.5 || dRight;
+
+            if ((isUp || isDown || isLeft || isRight) && (now - lastGpNavTime > GP_NAV_COOLDOWN)) {
+                if (isUp) navigateGrid('UP');
+                else if (isDown) navigateGrid('DOWN');
+                else if (isLeft) navigateGrid('LEFT');
+                else if (isRight) navigateGrid('RIGHT');
+                lastGpNavTime = now;
+            }
+
+            // Botón A (Aceptar)
+            if (gp.buttons[0]?.pressed && !prevGpButtons.btnA) {
+                activateFocused();
+            }
+            prevGpButtons.btnA = gp.buttons[0]?.pressed;
+
+            // Botón B / Esc (Atrás / Limpiar)
+            if (gp.buttons[1]?.pressed && !prevGpButtons.btnB) {
+                handleEscapeAction();
+            }
+            prevGpButtons.btnB = gp.buttons[1]?.pressed;
+        }
+    }
+
+    function movePlayer() {
+        isMoving = false;
+        if (keys.w || keys.ArrowUp) { pY -= playerSpeed; isMoving = true; }
+        if (keys.s || keys.ArrowDown) { pY += playerSpeed; isMoving = true; }
+        if (keys.a || keys.ArrowLeft) { pX -= playerSpeed; isFacingLeft = true; isMoving = true; }
+        if (keys.d || keys.ArrowRight) { pX += playerSpeed; isFacingLeft = false; isMoving = true; }
+
+        pX = Math.max(0, Math.min(window.innerWidth - baseSpriteHeight, pX));
+        
+        const minY = window.innerHeight * 0.3;
+        const maxY = window.innerHeight - baseSpriteHeight;
+        pY = Math.max(minY, Math.min(maxY, pY));
+    }
+
+    function moveZombies() {
+        zombies.forEach(z => {
+            const dx = pX - z.x;
+            const dy = pY - z.y;
+            const distance = Math.hypot(dx, dy);
+
+            if (distance > 0) {
+                z.x += (dx / distance) * zombieSpeed;
+                z.y += (dy / distance) * zombieSpeed;
+                z.facingLeft = dx < 0; 
+            }
             
-            const t = getTrackTime(e);
-            const pxPerSec = track.getBoundingClientRect().width / videoDuration;
+            const minY = window.innerHeight * 0.3;
+            const maxY = window.innerHeight - baseSpriteHeight;
+            z.y = Math.max(minY, Math.min(maxY, z.y));
+        });
+    }
+
+    function updateSprites() {
+        zorroEl.style.left = `${pX}px`; zorroEl.style.top = `${pY}px`;
+        zorroEl.style.transform = isFacingLeft ? 'scaleX(-1)' : 'scaleX(1)';
+        zombies.forEach(z => {
+            z.el.style.left = `${z.x}px`; z.el.style.top = `${z.y}px`;
+            z.el.style.transform = z.facingLeft ? 'scaleX(1)' : 'scaleX(-1)';
+        });
+    }
+
+    function handleRunningAnimation() {
+        if (isMoving) {
+            zorroEl.style.display = 'none'; 
+            runVideo.style.left = `${pX}px`;
+            runVideo.style.top = `${pY + 21}px`;
+            runVideo.style.transform = isFacingLeft ? 'scaleX(-1)' : 'scaleX(1)';
+            if (runVideo.paused) runVideo.play().catch(e => {});
+            runVideo.style.display = 'block';
+        } else {
+            if (!runVideo.paused) runVideo.pause();
+            runVideo.style.display = 'none';
+            zorroEl.style.display = 'block'; 
+        }
+    }
+
+    function checkCollision() {
+        for (let i = 0; i < zombies.length; i++) {
+            const distance = Math.hypot(pX - zombies[i].x, pY - zombies[i].y);
+            if (distance < 100) { activeZombie = zombies[i]; startBattle(); break; }
+        }
+    }
+
+    function startBattle() {
+        gameState = 'FIGHTING';
+        
+        battleTimeLeft = maxBattleTime;
+        updateTimerUI();
+
+        if (!runVideo.paused) runVideo.pause();
+        runVideo.style.display = 'none';
+        zorroEl.style.display = 'block';
+        joystickZone.style.visibility = 'hidden'; 
+        
+        currentProblem.a = Math.floor(Math.random() * 10) + 1;
+        currentProblem.b = Math.floor(Math.random() * 10) + 1;
+        currentAnswer = currentProblem.a * currentProblem.b;
+        
+        clearInput(); 
+        battleUI.classList.add('battle-ui--active');
+        
+        const uiWidth = battleUI.offsetWidth;
+        const uiHeight = battleUI.offsetHeight;
+        let uiLeft = pX + (activeZombie.x - pX) / 2 - (uiWidth / 2);
+        let uiTop = Math.min(pY, activeZombie.y) - uiHeight - 10;
+        
+        if (uiTop < 60) { uiTop = Math.max(pY, activeZombie.y) + baseSpriteHeight + 10; }
+
+        const padding = 20;
+        uiLeft = Math.max(padding, Math.min(uiLeft, window.innerWidth - uiWidth - padding));
+        uiTop = Math.max(padding, Math.min(uiTop, window.innerHeight - uiHeight - padding));
+        
+        battleUI.style.left = `${uiLeft}px`; 
+        battleUI.style.top = `${uiTop}px`;
+
+        currentFocusIndex = 0;
+        refreshFocusableElements();
+    }
+
+    function updateTimerUI() {
+        const percentage = Math.max(0, (battleTimeLeft / maxBattleTime) * 100);
+        timerFill.style.width = `${percentage}%`;
+        
+        if (percentage <= 25) {
+            timerFill.style.backgroundColor = "var(--color-damage)";
+        } else if (percentage <= 50) {
+            timerFill.style.backgroundColor = "var(--color-warning)";
+        } else {
+            timerFill.style.backgroundColor = "var(--color-health)";
+        }
+    }
+
+    function triggerTimeoutAttack() {
+        gameState = 'TIMEOUT'; 
+        battleTimeLeft = 0;
+        updateTimerUI();
+        
+        playSfx(zombieSound);
+        
+        takeDamage(25);
+        battleUI.classList.add('battle-ui--error');
+        
+        setTimeout(() => { 
+            battleUI.classList.remove('battle-ui--error');
+            if (gameState === 'TIMEOUT') {
+                battleTimeLeft = maxBattleTime;
+                gameState = 'FIGHTING';
+            }
+        }, 400);
+    }
+
+    function addDigit(num) { if (playerAnswer.length < 3) { playerAnswer += num; updateDisplay(); } }
+    function removeDigit() { playerAnswer = playerAnswer.slice(0, -1); updateDisplay(); }
+    function clearInput() { playerAnswer = ""; updateDisplay(); }
+
+    function updateDisplay() {
+        const displayValue = playerAnswer === "" ? "?" : playerAnswer;
+        displayMath.innerHTML = `${currentProblem.a} X ${currentProblem.b} = <span style="color:#ffcc00">${displayValue}</span>`;
+    }
+
+    function checkAnswer() {
+        if (playerAnswer === "") return;
+        if (parseInt(playerAnswer) === currentAnswer) {
+            playAttackSequence();
+        } else {
+            playSfx(zombieSound);
             
-            const distStart = Math.abs(t - trimStartTime) * pxPerSec;
-            const distEnd = Math.abs(t - trimEndTime) * pxPerSec;
-            const distPlayhead = Math.abs(t - video.currentTime) * pxPerSec;
+            takeDamage(25);
+            battleUI.classList.add('battle-ui--error');
+            battleTimeLeft -= 1000;
+            setTimeout(() => { battleUI.classList.remove('battle-ui--error'); clearInput(); }, 400);
+        }
+    }
+
+    function playAttackSequence() {
+        battleUI.classList.remove('battle-ui--active');
+        gameState = 'ANIMATING'; 
+        zorroEl.style.display = 'none';
+
+        attackVideo.style.left = `${pX}px`;
+        attackVideo.style.top = `${pY}px`;
+        attackVideo.style.transform = isFacingLeft ? 'scaleX(-1)' : 'scaleX(1)';
+        attackVideo.style.display = 'block';
+        
+        attackVideo.currentTime = 0;
+        attackVideo.play().catch(e => console.log(e));
+
+        let halfDurationMs = (attackVideo.duration > 0 ? (attackVideo.duration * 1000) / 2 : 500);
+        
+        setTimeout(() => {
+            if(gameState === 'ANIMATING') {
+                playSfx(swordSound);
+            }
+        }, halfDurationMs);
+
+        attackVideo.onended = () => {
+            if(gameState !== 'ANIMATING') return; 
             
-            if (distPlayhead < 15) {
-                isDraggingTimeline = 'playhead';
-            } else if (distStart < 15) {
-                isDraggingTimeline = 'start';
-            } else if (distEnd < 15) {
-                isDraggingTimeline = 'end';
-            } else if (t > trimStartTime && t < trimEndTime) {
-                isDraggingTimeline = 'range';
-                dragStartOffsetTime = t;
-                initialTrimStart = trimStartTime;
-                initialTrimEnd = trimEndTime;
+            attackVideo.style.display = 'none';
+            zorroEl.style.display = 'block'; 
+            
+            score += 10;
+            scoreText.textContent = score;
+            scoreFill.style.width = `${(score / maxScore) * 100}%`;
+            
+            if (score >= maxScore) {
+                gameState = 'VICTORY';
+                bgMusic.pause();
+                victoryScreen.classList.add('overlay-screen--active');
+                refreshFocusableElements();
             } else {
-                isDraggingTimeline = 'playhead';
-                video.currentTime = t;
+                endBattle();
             }
-        });
+        };
+    }
 
-        track.addEventListener('pointermove', (e) => {
-            if (!video.src || videoDuration <= 0.1) return;
-            const t = getTrackTime(e);
+    function takeDamage(amount) {
+        playerHP -= amount;
+        if (playerHP <= 0) {
+            playerHP = 0;
+            gameState = 'GAMEOVER';
+            bgMusic.pause();
+            setTimeout(() => { alert("¡Has muerto!"); location.reload(); }, 100);
+        }
+        healthFill.style.width = `${playerHP}%`;
+        if (playerHP <= 25) healthFill.style.backgroundColor = "var(--color-damage)";
+    }
 
-            if (!isDraggingTimeline) {
-                const pxPerSec = track.getBoundingClientRect().width / videoDuration;
-                const dStart = Math.abs(t - trimStartTime) * pxPerSec;
-                const dEnd = Math.abs(t - trimEndTime) * pxPerSec;
-                
-                if (dStart < 15 || dEnd < 15) track.style.cursor = 'ew-resize';
-                else if (t > trimStartTime && t < trimEndTime) track.style.cursor = 'grab';
-                else track.style.cursor = 'pointer';
-                return;
-            }
+    function endBattle() {
+        gameState = 'EXPLORING';
+        battleUI.classList.remove('battle-ui--active');
+        joystickZone.style.visibility = 'visible';
+        if (activeZombie) { spawnZombieAway(activeZombie); activeZombie = null; }
+        refreshFocusableElements();
+    }
 
-            if (isDraggingTimeline === 'start') {
-                trimStartTime = Math.min(t, trimEndTime - 0.1);
-                video.currentTime = trimStartTime;
-                track.style.cursor = 'ew-resize';
-            } 
-            else if (isDraggingTimeline === 'end') {
-                trimEndTime = Math.max(t, trimStartTime + 0.1);
-                if (video.currentTime > trimEndTime) video.currentTime = trimEndTime;
-                track.style.cursor = 'ew-resize';
-            } 
-            else if (isDraggingTimeline === 'range') {
-                track.style.cursor = 'grabbing';
-                let delta = t - dragStartOffsetTime;
-                let newStart = initialTrimStart + delta;
-                let newEnd = initialTrimEnd + delta;
-                let duration = initialTrimEnd - initialTrimStart;
+    function spawnZombieAway(zombieObj) {
+        const edge = Math.floor(Math.random() * 4);
+        const minY = window.innerHeight * 0.3;
+        const maxY = window.innerHeight - baseSpriteHeight;
+        
+        if (edge === 0) { 
+            zombieObj.x = Math.random() * window.innerWidth; 
+            zombieObj.y = minY; 
+        }
+        else if (edge === 1) { 
+            zombieObj.x = window.innerWidth + 10; 
+            zombieObj.y = minY + Math.random() * (maxY - minY); 
+        }
+        else if (edge === 2) { 
+            zombieObj.x = Math.random() * window.innerWidth; 
+            zombieObj.y = window.innerHeight + 10; 
+        }
+        else { 
+            zombieObj.x = -140; 
+            zombieObj.y = minY + Math.random() * (maxY - minY); 
+        }
+        
+        zombieObj.el.style.left = `${zombieObj.x}px`;
+        zombieObj.el.style.top = `${zombieObj.y}px`;
+    }
 
-                if (newStart < 0) { newStart = 0; newEnd = duration; }
-                if (newEnd > videoDuration) { newEnd = videoDuration; newStart = videoDuration - duration; }
+    layout = [1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, 'OK'];
+    layout.forEach(key => {
+        const btn = document.createElement('button');
+        btn.textContent = key; btn.className = 'keypad__btn';
+        if (key === 'C') { btn.classList.add('keypad__btn--clear'); btn.onclick = clearInput; } 
+        else if (key === 'OK') { btn.classList.add('keypad__btn--action'); btn.onclick = checkAnswer; } 
+        else { btn.onclick = () => addDigit(key); }
+        keypadEl.appendChild(btn);
+    });
 
-                trimStartTime = newStart;
-                trimEndTime = newEnd;
-                video.currentTime = trimStartTime; 
-            } 
-            else if (isDraggingTimeline === 'playhead') {
-                video.currentTime = t;
-                track.style.cursor = 'pointer';
-            }
-            updateTimelineUI();
-        });
+    // Acciones para la tecla ESC
+    function handleEscapeAction() {
+        if (settingsScreen.classList.contains('overlay-screen--active')) {
+            document.getElementById('btnBackSettings').click();
+        } else if (gameState === 'EXPLORING' || gameState === 'USER_PAUSED') {
+            togglePauseGame();
+        } else if (gameState === 'FIGHTING') {
+            clearInput();
+        }
+    }
 
-        track.addEventListener('pointerup', (e) => {
-            isDraggingTimeline = null;
-            track.style.cursor = 'pointer';
-            track.releasePointerCapture(e.pointerId);
+    // --- MANEJO DE TECLADO Y FLECHAS 2D ---
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            handleEscapeAction();
+            return;
+        }
+
+        if (gameState === 'EXPLORING') {
+            keys[e.key] = true;
+        } else if (gameState === 'FIGHTING') {
+            if (e.key >= '0' && e.key <= '9') addDigit(e.key);
+            if (e.key === 'Backspace') removeDigit();
+            if (e.key.toLowerCase() === 'c') clearInput();
+        }
+
+        // Desplazamiento en la grilla/menús con flechas del teclado
+        if (gameState !== 'EXPLORING') {
+            if (e.key === 'ArrowUp') { e.preventDefault(); navigateGrid('UP'); }
+            if (e.key === 'ArrowDown') { e.preventDefault(); navigateGrid('DOWN'); }
+            if (e.key === 'ArrowLeft') { e.preventDefault(); navigateGrid('LEFT'); }
+            if (e.key === 'ArrowRight') { e.preventDefault(); navigateGrid('RIGHT'); }
             
-            // Reanudar solo si el usuario NO lo pausó voluntariamente
-            if (video.paused && video.src && !isUserPaused) video.play(); 
-        });
-
-        // Velocidad
-        playbackSpeed.addEventListener('input', (e) => {
-            video.playbackRate = e.target.value;
-            document.getElementById('lblSpeed').innerText = parseFloat(e.target.value).toFixed(2) + 'x';
-        });
-
-        btnResetSpeed.addEventListener('click', () => {
-            playbackSpeed.value = 1;
-            video.playbackRate = 1;
-            document.getElementById('lblSpeed').innerText = '1.00x';
-        });
-
-        // Color 
-        function rgbToHex(r, g, b) {
-            return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1);
-        }
-        function hexToRgb(hex) {
-            let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-            return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : {r:0, g:255, b:0};
-        }
-
-        function setPreset(mode, hex) {
-            currentMode = mode;
-            nativePicker.value = hex;
-            if (mode === 'custom') customColor = hexToRgb(hex);
-        }
-
-        nativePicker.addEventListener('input', (e) => setPreset('custom', e.target.value));
-        tolInput.oninput = (e) => document.getElementById('tolVal').innerText = e.target.value;
-
-        // Cargar Video
-        document.getElementById('videoUpload').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            video.src = URL.createObjectURL(file);
-            isUserPaused = false;
-            video.play();
-            statusTxt.innerText = "Video cargado.";
-        });
-
-        video.addEventListener('loadedmetadata', () => {
-            crop.x = 0; crop.y = 0; crop.w = video.videoWidth; crop.h = video.videoHeight;
-            videoDuration = video.duration;
-            trimStartTime = 0; 
-            trimEndTime = videoDuration;
-            updateTimelineUI();
-            video.play(); 
-        });
-
-        // Alternar Recorte
-        btnToggleCrop.addEventListener('click', () => {
-            if (!video.src) return alert('Sube un video primero.');
-            isCroppingMode = true; isEyedropperActive = false; btnEyedropper.classList.remove('active-btn');
-            btnToggleCrop.style.display = 'none'; btnConfirmCrop.style.display = 'block';
-            previewCanvas.style.cursor = 'crosshair';
-        });
-        btnConfirmCrop.addEventListener('click', () => {
-            isCroppingMode = false;
-            btnConfirmCrop.style.display = 'none'; btnToggleCrop.style.display = 'flex';
-            previewCanvas.style.cursor = 'pointer';
-        });
-
-        // Gotero
-        btnEyedropper.addEventListener('click', () => {
-            if (!video.src) return alert('Sube un video primero.');
-            isEyedropperActive = !isEyedropperActive;
-            if (isEyedropperActive) {
-                btnEyedropper.classList.add('active-btn'); previewCanvas.style.cursor = 'crosshair';
-            } else {
-                btnEyedropper.classList.remove('active-btn'); previewCanvas.style.cursor = isCroppingMode ? 'crosshair' : 'pointer';
-            }
-        });
-
-        // Eventos de interacción con el Canvas Preview
-        function getPointerPos(e) {
-            const rect = previewCanvas.getBoundingClientRect();
-            return { x: (e.clientX - rect.left) * (previewCanvas.width / rect.width), y: (e.clientY - rect.top) * (previewCanvas.height / rect.height) };
-        }
-
-        previewCanvas.addEventListener('pointerdown', (e) => {
-            const pos = getPointerPos(e);
-            if (isEyedropperActive) {
-                pendingColorPick = pos; isEyedropperActive = false; btnEyedropper.classList.remove('active-btn');
-                previewCanvas.style.cursor = isCroppingMode ? 'crosshair' : 'pointer';
-                return;
-            }
-            if (isCroppingMode) {
-                dragAction = detectHit(pos);
-                if (dragAction) {
-                    isDragging = true; startPos = pos; startCrop = { ...crop };
-                    previewCanvas.setPointerCapture(e.pointerId);
-                }
-            } else {
-                // --- NUEVO: Alternar Play / Pausa si no se edita ni se usa gotero ---
-                if (video.src) {
-                    if (video.paused) {
-                        video.play();
-                        isUserPaused = false;
-                    } else {
-                        video.pause();
-                        isUserPaused = true;
-                    }
-                }
-            }
-        });
-
-        function detectHit(pos) {
-            const { x, y, w, h } = crop;
-            if (Math.abs(pos.x - x) < handleSize && Math.abs(pos.y - y) < handleSize) return 'tl';
-            if (Math.abs(pos.x - (x + w)) < handleSize && Math.abs(pos.y - y) < handleSize) return 'tr';
-            if (Math.abs(pos.x - x) < handleSize && Math.abs(pos.y - (y + h)) < handleSize) return 'bl';
-            if (Math.abs(pos.x - (x + w)) < handleSize && Math.abs(pos.y - (y + h)) < handleSize) return 'br';
-            if (pos.x > x && pos.x < x + w && pos.y > y && pos.y < y + h) return 'move';
-            return null;
-        }
-
-        previewCanvas.addEventListener('pointermove', (e) => {
-            if (isEyedropperActive) return;
-            if (!isCroppingMode) {
-                previewCanvas.style.cursor = 'pointer';
-                return;
-            }
-            const pos = getPointerPos(e);
-            if (!isDragging) {
-                const hoverAction = detectHit(pos);
-                previewCanvas.style.cursor = hoverAction === 'move' ? 'move' : (hoverAction ? 'crosshair' : 'default');
-                return;
-            }
-            const dx = pos.x - startPos.x; const dy = pos.y - startPos.y;
-            const vw = video.videoWidth; const vh = video.videoHeight; const minSize = 50;
-
-            if (dragAction === 'move') { crop.x = Math.max(0, Math.min(vw - crop.w, startCrop.x + dx)); crop.y = Math.max(0, Math.min(vh - crop.h, startCrop.y + dy)); } 
-            else if (dragAction === 'tl') {
-                let newX = Math.max(0, Math.min(startCrop.x + dx, startCrop.x + startCrop.w - minSize));
-                let newY = Math.max(0, Math.min(startCrop.y + dy, startCrop.y + startCrop.h - minSize));
-                crop.w = startCrop.x + startCrop.w - newX; crop.h = startCrop.y + startCrop.h - newY; crop.x = newX; crop.y = newY;
-            }
-            else if (dragAction === 'tr') {
-                crop.w = Math.max(minSize, Math.min(startCrop.w + dx, vw - startCrop.x));
-                let newY = Math.max(0, Math.min(startCrop.y + dy, startCrop.y + startCrop.h - minSize));
-                crop.h = startCrop.y + startCrop.h - newY; crop.y = newY;
-            }
-            else if (dragAction === 'bl') {
-                let newX = Math.max(0, Math.min(startCrop.x + dx, startCrop.x + startCrop.w - minSize));
-                crop.w = startCrop.x + startCrop.w - newX; crop.h = Math.max(minSize, Math.min(startCrop.h + dy, vh - startCrop.y)); crop.x = newX;
-            }
-            else if (dragAction === 'br') {
-                crop.w = Math.max(minSize, Math.min(startCrop.w + dx, vw - startCrop.x)); crop.h = Math.max(minSize, Math.min(startCrop.h + dy, vh - startCrop.y));
-            }
-        });
-        previewCanvas.addEventListener('pointerup', (e) => {
-            isDragging = false; dragAction = null;
-            if (isCroppingMode) previewCanvas.releasePointerCapture(e.pointerId);
-        });
-
-        // Procesamiento Render
-        function applyChromaKey(ctx, width, height) {
-            const frameData = ctx.getImageData(0, 0, width, height); const data = frameData.data; const tol = parseInt(tolInput.value);
-            for (let i = 0; i < data.length; i += 4) {
-                const r = data[i], g = data[i + 1], b = data[i + 2]; let remove = false;
-                if (currentMode === 'green') { if (g > r + tol && g > b + tol) remove = true; } 
-                else if (currentMode === 'blue') { if (b > r + tol && b > g + tol) remove = true; } 
-                else if (currentMode === 'red') { if (r > g + tol && r > b + tol) remove = true; } 
-                else if (currentMode === 'custom') {
-                    if (Math.hypot(r - customColor.r, g - customColor.g, b - customColor.b) < tol * 1.5) remove = true;
-                }
-                if (remove) data[i + 3] = 0;
-            }
-            ctx.putImageData(frameData, 0, 0);
-        }
-
-        function drawMirroredVideo(ctx, sx, sy, sw, sh, dx, dy, dw, dh) {
-            ctx.save();
-            if (flipH.checked || flipV.checked) {
-                ctx.translate(flipH.checked ? dw : 0, flipV.checked ? dh : 0); ctx.scale(flipH.checked ? -1 : 1, flipV.checked ? -1 : 1);
-                let fSx = flipH.checked ? (video.videoWidth - sx - sw) : sx; let fSy = flipV.checked ? (video.videoHeight - sy - sh) : sy;
-                ctx.drawImage(video, fSx, fSy, sw, sh, 0, 0, dw, dh);
-            } else { ctx.drawImage(video, sx, sy, sw, sh, dx, dy, dw, dh); }
-            ctx.restore();
-        }
-
-        function handleAutoLoopAndRecording() {
-            const isExporting = isRecordingGif || isRecordingWebM;
-            
-            // Pausar auto-loop si el usuario está interactuando con la línea de tiempo manualmente
-            if (isDraggingTimeline && !isExporting) return;
-            
-            if (video.currentTime >= trimEndTime || video.ended) {
-                if (isExporting) {
-                    if (isRecordingGif) { isRecordingGif = false; statusTxt.innerText = "Renderizando GIF..."; gif.render(); }
-                    if (isRecordingWebM) { isRecordingWebM = false; mediaRecorder.stop(); }
-                }
-                video.currentTime = trimStartTime;
-                if (!video.paused) video.play(); // Solo seguir reproduciendo si no estaba en pausa
-                
-            } else if (video.currentTime < trimStartTime) {
-                if (!isDraggingTimeline) {
-                    video.currentTime = trimStartTime;
-                    if (!video.paused) video.play();
-                }
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                activateFocused();
             }
         }
+    });
 
-        function processFrame() {
-            if (video.videoWidth === 0) {
-                requestAnimationFrame(processFrame);
-                return;
-            }
+    window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
-            handleAutoLoopAndRecording();
-            updateTimelineUI();
+    // Enfoque inicial
+    refreshFocusableElements();
 
-            const vw = video.videoWidth; const vh = video.videoHeight;
-
-            if (isCroppingMode) {
-                previewCanvas.width = vw; previewCanvas.height = vh;
-                drawMirroredVideo(ctxPreview, 0, 0, vw, vh, 0, 0, vw, vh);
-                
-                if (pendingColorPick) {
-                    const pixel = ctxPreview.getImageData(pendingColorPick.x, pendingColorPick.y, 1, 1).data;
-                    setPreset('custom', rgbToHex(pixel[0], pixel[1], pixel[2]));
-                    pendingColorPick = null;
-                }
-
-                applyChromaKey(ctxPreview, vw, vh);
-
-                ctxPreview.fillStyle = 'rgba(0,0,0,0.6)';
-                ctxPreview.fillRect(0,0,vw,crop.y); ctxPreview.fillRect(0,crop.y+crop.h,vw,vh-(crop.y+crop.h));
-                ctxPreview.fillRect(0,crop.y,crop.x,crop.h); ctxPreview.fillRect(crop.x+crop.w,crop.y,vw-(crop.x+crop.w),crop.h);
-
-                ctxPreview.strokeStyle='#fbfb8e'; ctxPreview.lineWidth=2; ctxPreview.strokeRect(crop.x,crop.y,crop.w,crop.h);
-                ctxPreview.beginPath(); ctxPreview.moveTo(crop.x+crop.w/3,crop.y); ctxPreview.lineTo(crop.x+crop.w/3,crop.y+crop.h);
-                ctxPreview.moveTo(crop.x+(crop.w/3)*2,crop.y); ctxPreview.lineTo(crop.x+(crop.w/3)*2,crop.y+crop.h);
-                ctxPreview.moveTo(crop.x,crop.y+crop.h/3); ctxPreview.lineTo(crop.x+crop.w,crop.y+crop.h/3);
-                ctxPreview.moveTo(crop.x,crop.y+(crop.h/3)*2); ctxPreview.lineTo(crop.x+crop.w,crop.y+(crop.h/3)*2); ctxPreview.stroke();
-
-                ctxPreview.lineWidth=6; const cl=20; ctxPreview.beginPath();
-                ctxPreview.moveTo(crop.x,crop.y+cl); ctxPreview.lineTo(crop.x,crop.y); ctxPreview.lineTo(crop.x+cl,crop.y);
-                ctxPreview.moveTo(crop.x+crop.w-cl,crop.y); ctxPreview.lineTo(crop.x+crop.w,crop.y); ctxPreview.lineTo(crop.x+crop.w,crop.y+cl);
-                ctxPreview.moveTo(crop.x,crop.y+crop.h-cl); ctxPreview.lineTo(crop.x,crop.y+crop.h); ctxPreview.lineTo(crop.x+cl,crop.y+crop.h);
-                ctxPreview.moveTo(crop.x+crop.w-cl,crop.y+crop.h); ctxPreview.lineTo(crop.x+crop.w,crop.y+crop.h); ctxPreview.lineTo(crop.x+crop.w,crop.y+crop.h-cl);
-                ctxPreview.stroke();
-            } else {
-                previewCanvas.width = crop.w; previewCanvas.height = crop.h;
-                ctxPreview.clearRect(0, 0, crop.w, crop.h);
-                drawMirroredVideo(ctxPreview, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
-                
-                if (pendingColorPick) {
-                    const pixel = ctxPreview.getImageData(pendingColorPick.x, pendingColorPick.y, 1, 1).data;
-                    setPreset('custom', rgbToHex(pixel[0], pixel[1], pixel[2]));
-                    pendingColorPick = null;
-                }
-                applyChromaKey(ctxPreview, crop.w, crop.h);
-            }
-
-            if (isRecordingGif || isRecordingWebM) {
-                renderCanvas.width = crop.w; renderCanvas.height = crop.h;
-                ctxRender.clearRect(0, 0, crop.w, crop.h);
-                drawMirroredVideo(ctxRender, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
-                applyChromaKey(ctxRender, crop.w, crop.h);
-
-                if (isRecordingGif && gif) gif.addFrame(ctxRender, {copy: true, delay: 1000 / (30 * video.playbackRate), transparent: 'rgba(0,0,0,0)'});
-            }
-            requestAnimationFrame(processFrame);
-        }
-
-        video.addEventListener('play', () => requestAnimationFrame(processFrame));
-
-        // Exportación
-        document.getElementById('recordGifBtn').addEventListener('click', (e) => {
-            if (!video.src) return alert('Sube un video primero.');
-            if (isRecordingWebM) return;
-            const btn = e.target;
-            
-            if (!isRecordingGif) {
-                isRecordingGif = true; btn.innerText = "Detener y Renderizar GIF"; btn.classList.add('active-btn');
-                statusTxt.innerText = "Grabando frames GIF...";
-                video.currentTime = trimStartTime;
-                isUserPaused = false; // Quitar pausa al exportar
-                video.play(); 
-                
-                gif = new GIF({ workers: 2, quality: 10, width: crop.w, height: crop.h, workerScript: 'gif.worker.js', transparent: "rgba(0,0,0,0)" });
-                gif.on('finished', function(blob) {
-                    descargar(blob, 'animacion.gif'); statusTxt.innerText = "¡GIF listo!";
-                    btn.innerText = "Grabar a GIF"; btn.classList.remove('active-btn');
-                });
-            } else {
-                isRecordingGif = false; statusTxt.innerText = "Procesando..."; gif.render();
-            }
-        });
-
-        document.getElementById('recordWebMBtn').addEventListener('click', (e) => {
-            if (!video.src) return alert('Sube un video primero.');
-            if (isRecordingGif) return;
-            const btn = e.target;
-            
-            if (!isRecordingWebM) {
-                isRecordingWebM = true; btn.innerText = "Detener y Exportar WebM"; btn.classList.add('active-btn');
-                statusTxt.innerText = "Grabando WebM...";
-                video.currentTime = trimStartTime;
-                isUserPaused = false; // Quitar pausa al exportar
-                video.play(); 
-                recordedChunks = [];
-
-                const stream = renderCanvas.captureStream(30); 
-                let options = { mimeType: 'video/webm; codecs=vp9' };
-                if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: 'video/webm; codecs=vp8' };
-
-                mediaRecorder = new MediaRecorder(stream, options);
-                mediaRecorder.ondataavailable = (ev) => { if (ev.data.size > 0) recordedChunks.push(ev.data); };
-                mediaRecorder.onstop = () => {
-                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                    descargar(blob, 'video.webm'); statusTxt.innerText = "¡WebM listo!";
-                    btn.innerText = "Grabar a WebM (Recomendado)"; btn.classList.remove('active-btn');
-                };
-                mediaRecorder.start();
-            } else {
-                isRecordingWebM = false; mediaRecorder.stop();
-            }
-        });
-
-        function descargar(blob, name) {
-            const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name;
-            a.click(); URL.revokeObjectURL(url);
-        }
-    </script>
+    requestAnimationFrame(gameLoop);
+</script>
 </body>
 </html>
