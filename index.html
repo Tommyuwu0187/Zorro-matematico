@@ -2,632 +2,679 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zorro vs Zombie Matemático</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chroma Key Studio Pro (Editor Completo)</title>
+    <script src="gif.js"></script>
     <style>
-        :root {
-            --color-bg: #000000;
-            --color-text: #ffffff;
-            --color-health: #4caf50;
-            --color-damage: #f44336;
-            --color-score: #2196f3;
-        }
-
-        body { 
-            margin: 0; 
-            background-color: var(--color-bg); 
-            color: var(--color-text); 
-            font-family: 'Courier New', Courier, monospace; 
-            overflow: hidden; 
-            user-select: none;
-            touch-action: none;
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #1e1e2e; color: #cdd6f4;
+            padding: 20px; max-width: 1400px; margin: 0 auto;
         }
         
-        .game-area {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            background: 
-                linear-gradient(transparent 90%, #333 90%, #333 91%, transparent 91%) 0 100px / 300px 300px,
-                linear-gradient(transparent 50%, #333 50%, #333 51%, transparent 51%) 150px 0 / 400px 200px;
+        /* Layout de 3 columnas */
+        .app-layout {
+            display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch;
+        }
+        .side-panel {
+            flex: 1; min-width: 300px; max-width: 350px;
+            display: flex; flex-direction: column; gap: 15px;
+        }
+        .center-panel {
+            flex: 2; min-width: 450px;
+            display: flex; flex-direction: column; gap: 15px;
         }
 
-        /* --- Pantallas Superpuestas --- */
-        .overlay-screen {
-            position: absolute;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0, 0, 0, 0.9);
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 200;
-            color: white;
-            text-align: center;
+        .box {
+            background: #313244; padding: 15px; border-radius: 12px;
+            display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-
-        .overlay-screen--active { display: flex; }
-        .overlay-screen h1 { font-size: 3rem; color: #ffcc00; margin-bottom: 10px; }
-        .overlay-screen p { font-size: 1.2rem; margin-bottom: 30px; padding: 0 20px;}
-
-        .btn-menu {
-            padding: 15px 40px;
-            font-size: 1.5rem;
-            font-weight: bold;
-            font-family: inherit;
-            color: #000;
-            background: #ffcc00;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        #rotateDevice { display: none; z-index: 9999; background: #000; }
-        @media screen and (orientation: portrait) {
-            #rotateDevice { display: flex !important; }
-        }
-
-        /* --- Joystick --- */
-        #joystick-zone {
-            display: none; 
-            position: absolute;
-            bottom: 40px; left: 40px;
-            width: 140px; height: 140px;
-            background: rgba(255, 255, 255, 0.15);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            z-index: 50;
-        }
-
-        #joystick-knob {
-            position: absolute;
-            top: 40px; left: 40px;
-            width: 60px; height: 60px;
-            background: rgba(255, 255, 255, 0.6);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        /* --- SPRITES --- */
-        .sprite { 
-            position: absolute; 
-            width: 140px; height: 140px; 
-            background-size: contain; 
-            background-position: center;
-            background-repeat: no-repeat;
-            image-rendering: pixelated; 
-        }
+        .box h3 { margin: 0 0 5px 0; font-size: 15px; color: #89b4fa; border-bottom: 1px solid #45475a; padding-bottom: 5px; }
         
-        #zorro { background-image: url('zorro.png'); z-index: 10; }
-        .zombie-sprite { background-image: url('zombie.png'); z-index: 5; }
-
-        #attackVideo, #runVideo { display: none; }
-        .chroma-canvas { display: none; position: absolute; pointer-events: none; }
-        #runCanvas { z-index: 10; } 
-        #attackCanvas { z-index: 15; } 
-
-        /* --- UI HUD --- */
-        .hud {
-            position: absolute; top: 20px; left: 20px; right: 20px;
-            z-index: 20; display: flex; justify-content: space-between;
-        }
-        .hud__stat { display: flex; align-items: center; gap: 10px; }
-        .hud__stat h2 { margin: 0; font-size: 1.5rem; text-shadow: 2px 2px 0 #000; }
-        .hud__bar { width: 200px; height: 25px; background-color: #333; border: 2px solid #fff; border-radius: 4px; overflow: hidden; }
-        .hud__fill--health { width: 100%; height: 100%; background-color: var(--color-health); transition: width 0.3s ease; }
-        .hud__fill--score { width: 0%; height: 100%; background-color: var(--color-score); transition: width 0.3s ease; }
-
-        /* --- UI BATALLA --- */
-        .battle-ui { 
-            display: none; 
-            position: absolute; 
-            z-index: 100; 
-            align-items: center;
-            gap: 20px; 
-        }
-        .battle-ui--active { display: flex; } 
-        .battle-ui--error .battle-ui__math { color: var(--color-damage); animation: shake 0.4s; }
+        .row { display: flex; gap: 10px; align-items: center; justify-content: space-between; font-size: 14px;}
+        .col { display: flex; flex-direction: column; gap: 5px; font-size: 14px; width: 100%;}
         
-        .battle-ui__math { 
-            position: relative; 
-            font-size: 3rem; color: #ffffff; margin: 0;
-            white-space: nowrap; text-shadow: 2px 2px 0 #000;
-        }
-        
-        .keypad {
-            display: none; 
-            grid-template-columns: repeat(3, 50px); gap: 8px;
-            background: #333333; padding: 12px; border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.8);
-        }
-        .keypad__btn { 
-            padding: 10px; font-size: 20px; font-weight: bold; 
-            cursor: pointer; border: none; border-radius: 6px; 
-            background: #666666; color: #ffffff;
-        }
-        .keypad__btn:active { background: #888888; }
-        .keypad__btn--action { background: #4caf50; }
-        .keypad__btn--clear { background: var(--color-damage); }
+        input[type="file"] { background: #45475a; color: #cdd6f4; border: none; padding: 8px 10px; border-radius: 6px; width: 100%; box-sizing: border-box;}
+        input[type="range"] { width: 100%; }
 
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25%, 75% { transform: translateX(-5px); }
-            50% { transform: translateX(5px); }
+        button {
+            background: #89b4fa; color: #11111b; border: none; padding: 10px 15px; border-radius: 6px; 
+            cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 5px;
         }
+        button:hover { background: #b4befe; }
+        
+        #btnConfirmCrop { background: #a6e3a1; } #btnConfirmCrop:hover { background: #94e2d5; }
+        #recordWebMBtn { background: #a6e3a1; } #recordWebMBtn:hover { background: #94e2d5; }
+        .active-btn { background: #f38ba8 !important; color: white !important; }
+        
+        /* Controles de color */
+        .color-tools { display: flex; gap: 10px; justify-content: space-between; align-items: center; }
+        .preset-colors { display: flex; gap: 8px; }
+        .c-btn { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid #585b70; transition: transform 0.2s; }
+        .c-btn:hover { transform: scale(1.1); }
+        
+        #nativeColorPicker {
+            -webkit-appearance: none; -moz-appearance: none; appearance: none;
+            width: 40px; height: 40px; background: transparent; border: none; cursor: pointer; padding: 0;
+        }
+        #nativeColorPicker::-webkit-color-swatch { border-radius: 8px; border: 2px solid #a6adc8; }
+        #nativeColorPicker::-moz-color-swatch { border-radius: 8px; border: 2px solid #a6adc8; }
+        
+        #btnEyedropper { width: auto; padding: 10px; }
+
+        /* Canvas en el centro */
+        .canvas-container {
+            position: relative; background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAOklEQVQYV2NkYGAwYcSPAfL/////g/gM+OQZ8GvAZhg2w6jhEQ9wOAwHgzEQHw09T0OOp2HkaTgehgEACQ86HwHnLwAAAABJRU5ErkJggg==') repeat;
+            border: 2px solid #45475a; border-radius: 12px; overflow: hidden;
+            display: flex; justify-content: center; align-items: center; min-height: 300px; flex: 1;
+        }
+        #previewCanvas { max-width: 100%; max-height: 60vh; display: block; touch-action: none; cursor: pointer; }
+        
+        /* Diseño de la Línea de Tiempo */
+        .timeline-container {
+            background: #313244; padding: 15px; border-radius: 12px; user-select: none;
+        }
+        .timeline-track {
+            position: relative; height: 35px; background: #1e1e2e; border-radius: 6px; margin-top: 5px; cursor: pointer;
+        }
+        .timeline-range {
+            position: absolute; top: 0; bottom: 0; background: rgba(137, 180, 250, 0.2);
+            border-top: 2px solid #89b4fa; border-bottom: 2px solid #89b4fa; pointer-events: none;
+        }
+        .timeline-handle {
+            position: absolute; top: 0; width: 14px; height: 100%; background: #89b4fa;
+            transform: translateX(-50%); border-radius: 4px; z-index: 10; pointer-events: none;
+        }
+        .timeline-handle::after {
+            content: '||'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: #1e1e2e; font-size: 8px; font-weight: bold; pointer-events: none;
+        }
+        .timeline-playhead {
+            position: absolute; top: -5px; bottom: -5px; width: 2px; background: #f38ba8;
+            transform: translateX(-50%); z-index: 20; pointer-events: none;
+        }
+        .timeline-playhead::before {
+            content: ''; position: absolute; top: 0; left: -5px;
+            border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #f38ba8;
+        }
+
+        #status { text-align: center; font-style: italic; color: #a6adc8; display: block; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-<!-- Pantalla de Rotación con Botón -->
-<div id="rotateDevice" class="overlay-screen">
-    <h1>Gira tu dispositivo</h1>
-    <p>Este juego se juega mejor en horizontal.</p>
-    <button id="btnForceRotate" class="btn-menu">🔄 Rotar Pantalla</button>
-</div>
-
-<!-- Menú Principal -->
-<div id="mainMenu" class="overlay-screen overlay-screen--active">
-    <h1>Zorro Matemático</h1>
-    <p>Resuelve las operaciones para derrotar a los zombies.</p>
-    <button id="btnStart" class="btn-menu">▶ Iniciar Juego</button>
-</div>
-
-<!-- Menú de Pausa -->
-<div id="pauseScreen" class="overlay-screen">
-    <h1>Juego Pausado</h1>
-    <p>Has salido del modo pantalla completa.</p>
-    <button id="btnResumeFS" class="btn-menu">🔲 Volver a Pantalla Completa</button>
-</div>
-
-<!-- Menú de Victoria -->
-<div id="victoryScreen" class="overlay-screen">
-    <h1>¡Nivel Completado!</h1>
-    <p>Has conseguido los 200 puntos.</p>
-    <button id="btnRestart" class="btn-menu">🔄 Volver a Jugar</button>
-</div>
-
-<div class="game-area">
-    <div class="hud">
-        <div class="hud__stat">
-            <h2>HP:</h2>
-            <div class="hud__bar"><div class="hud__fill--health" id="healthFill"></div></div>
-        </div>
-        <div class="hud__stat">
-            <h2>PTS: <span id="scoreText">0</span></h2>
-            <div class="hud__bar"><div class="hud__fill--score" id="scoreFill"></div></div>
-        </div>
-    </div>
-
-    <div id="joystick-zone">
-        <div id="joystick-knob"></div>
-    </div>
-
-    <video id="attackVideo" src="ataque.mp4" playsinline crossorigin="anonymous"></video>
-    <canvas id="attackCanvas" class="chroma-canvas"></canvas>
-
-    <video id="runVideo" src="correr.mp4" playsinline crossorigin="anonymous" loop></video>
-    <canvas id="runCanvas" class="chroma-canvas"></canvas>
-
-    <div id="zorro" class="sprite"></div>
-    <div id="zombie1" class="sprite zombie-sprite"></div>
-    <div id="zombie2" class="sprite zombie-sprite"></div>
+    <h2 style="margin-top: 0;">Chroma Key Studio Pro</h2>
     
-    <div id="battleUI" class="battle-ui">
-        <h2 class="battle-ui__math" id="displayMath">2 X 5 = ?</h2>
-        <div class="keypad" id="keypad"></div>
-    </div>
-</div>
-
-<script>
-    // --- Detección Móvil ---
-    const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(navigator.userAgent.toLowerCase());
-    const keypadEl = document.getElementById('keypad');
-    const joystickZone = document.getElementById('joystick-zone');
-    
-    if (isMobile) {
-        keypadEl.style.display = 'grid';
-        joystickZone.style.display = 'block';
-    }
-
-    // --- Referencias ---
-    const zorroEl = document.getElementById('zorro');
-    const attackVideo = document.getElementById('attackVideo');
-    const attackCanvas = document.getElementById('attackCanvas');
-    const attackCtx = attackCanvas.getContext('2d', { willReadFrequently: true });
-    
-    const runVideo = document.getElementById('runVideo');
-    const runCanvas = document.getElementById('runCanvas');
-    const runCtx = runCanvas.getContext('2d', { willReadFrequently: true });
-
-    const battleUI = document.getElementById('battleUI');
-    const displayMath = document.getElementById('displayMath');
-    const healthFill = document.getElementById('healthFill');
-    const scoreFill = document.getElementById('scoreFill');
-    const scoreText = document.getElementById('scoreText');
-
-    const mainMenu = document.getElementById('mainMenu');
-    const pauseScreen = document.getElementById('pauseScreen');
-    const victoryScreen = document.getElementById('victoryScreen');
-
-    let gameState = 'MENU'; 
-    let previousState = '';
-    let playerHP = 100;
-    let score = 0;
-    const maxScore = 200;
-    
-    let pX = window.innerWidth / 2, pY = window.innerHeight / 2;
-    let isFacingLeft = false; 
-    let isMoving = false;
-    
-    const playerSpeed = 5;
-    const zombieSpeed = 1.5; 
-    const baseSpriteHeight = 140;
-
-    const zombies = [
-        { el: document.getElementById('zombie1'), x: 0, y: 0, facingLeft: true },
-        { el: document.getElementById('zombie2'), x: 0, y: 0, facingLeft: true }
-    ];
-    let activeZombie = null; 
-    const keys = { w: false, a: false, s: false, d: false };
-    let currentProblem = { a: 0, b: 0 };
-    let currentAnswer = 0;
-    let playerAnswer = "";
-
-    // --- FULLSCREEN Y ROTACIÓN API ---
-    async function enterFullscreenAndRotate() {
-        try {
-            const elem = document.documentElement;
-            // 1. Pedir pantalla completa primero
-            if (elem.requestFullscreen) {
-                await elem.requestFullscreen();
-            } else if (elem.webkitRequestFullscreen) {
-                await elem.webkitRequestFullscreen();
-            }
-            
-            // 2. Bloquear orientación a horizontal
-            if (screen.orientation && screen.orientation.lock) {
-                await screen.orientation.lock('landscape');
-            }
-        } catch (err) {
-            console.warn("No se pudo forzar la rotación o fullscreen:", err);
-            // Mostrar una alerta amigable si el navegador (como iOS Safari) lo bloquea
-            if(window.innerHeight > window.innerWidth) {
-                alert("Tu navegador no permite la rotación automática. Por favor, gira tu dispositivo manualmente y asegúrate de tener el giro automático activado.");
-            }
-        }
-    }
-
-    // Botón de forzar rotación en la pantalla de error vertical
-    document.getElementById('btnForceRotate').addEventListener('click', enterFullscreenAndRotate);
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-
-    function handleFullscreenChange() {
-        if (!isMobile) return; 
-        const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+    <div class="app-layout">
         
-        if (!isFullscreen) {
-            if (gameState === 'EXPLORING' || gameState === 'FIGHTING' || gameState === 'ANIMATING') {
-                previousState = gameState;
-                gameState = 'PAUSED';
-                pauseScreen.classList.add('overlay-screen--active');
+        <div class="side-panel">
+            <div class="box">
+                <h3>1. Origen y Geometría</h3>
+                <input type="file" id="videoUpload" accept="video/mp4" />
+                <div class="row">
+                    <button id="btnToggleCrop">✂️ Recortar Área</button>
+                    <button id="btnConfirmCrop" style="display:none;">✅ Confirmar Recorte</button>
+                </div>
+                <div class="row" style="justify-content: flex-start; gap: 15px;">
+                    <label style="cursor:pointer;"><input type="checkbox" id="flipH"> Espejo (↔)</label>
+                    <label style="cursor:pointer;"><input type="checkbox" id="flipV"> Voltear (↕)</label>
+                </div>
+            </div>
+
+            <div class="box">
+                <h3>2. Velocidad de Reproducción</h3>
+                <div class="col">
+                    <div class="row">
+                        <span>⏱️ Velocidad: <b id="lblSpeed">1.00x</b></span>
+                        <button id="btnResetSpeed" style="width: auto; padding: 4px 10px; font-size: 12px; background: #585b70; color: #cdd6f4;">↺ Restablecer</button>
+                    </div>
+                    <input type="range" id="playbackSpeed" min="0.25" max="3" value="1" step="0.25">
+                </div>
+            </div>
+        </div>
+
+        <div class="center-panel">
+            <div class="canvas-container" id="canvasContainer">
+                <canvas id="previewCanvas"></canvas>
+            </div>
+            
+            <div class="timeline-container">
+                <div class="row" style="margin-bottom: 5px;">
+                    <span style="font-weight: bold; color: #cdd6f4;">Línea de Tiempo (Edición)</span>
+                    <b id="lblTime" style="color: #a6adc8;">0.0s / 0.0s</b>
+                </div>
+                <div class="row" style="font-size: 12px; justify-content: space-between; margin-bottom: 5px;">
+                    <span>Punto de Entrada: <span id="lblStart" style="color: #89b4fa; font-weight:bold;">0.0s</span></span>
+                    <span>Punto de Salida: <span id="lblEnd" style="color: #89b4fa; font-weight:bold;">0.0s</span></span>
+                </div>
                 
-                if (!runVideo.paused) runVideo.pause();
-                if (!attackVideo.paused) attackVideo.pause();
-            }
-        } else {
-            if (gameState === 'PAUSED') {
-                gameState = previousState;
-                pauseScreen.classList.remove('overlay-screen--active');
-                if (gameState === 'ANIMATING') attackVideo.play();
-            }
-        }
-    }
+                <div class="timeline-track" id="timelineTrack">
+                    <div class="timeline-range" id="timelineRange"></div>
+                    <div class="timeline-handle" id="handleStart"></div>
+                    <div class="timeline-handle" id="handleEnd"></div>
+                    <div class="timeline-playhead" id="playhead"></div>
+                </div>
+            </div>
+        </div>
 
-    document.getElementById('btnResumeFS').onclick = () => { enterFullscreenAndRotate(); };
+        <div class="side-panel">
+            <div class="box">
+                <h3>3. Transparencia (Chroma)</h3>
+                <div class="color-tools">
+                    <div class="preset-colors">
+                        <div class="c-btn" style="background:#00ff00" onclick="setPreset('green', '#00ff00')" title="Verde"></div>
+                        <div class="c-btn" style="background:#0000ff" onclick="setPreset('blue', '#0000ff')" title="Azul"></div>
+                        <div class="c-btn" style="background:#ff0000" onclick="setPreset('red', '#ff0000')" title="Rojo"></div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="color" id="nativeColorPicker" value="#00ff00" title="Selector Nativo">
+                        <button id="btnEyedropper" title="Usar Gotero">💉</button>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="row"><span>Fuerza / Tolerancia:</span> <b id="tolVal">50</b></div>
+                    <input type="range" id="tolerance" min="0" max="200" value="50">
+                </div>
+            </div>
 
-    // --- Joystick ---
-    const knob = document.getElementById('joystick-knob');
-    let joyActive = false;
-    let joyCenter = { x: 0, y: 0 };
-
-    joystickZone.addEventListener('touchstart', (e) => {
-        joyActive = true;
-        const rect = joystickZone.getBoundingClientRect();
-        joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-        handleJoyMove(e.touches[0]);
-    });
-    joystickZone.addEventListener('touchmove', (e) => { if (joyActive) handleJoyMove(e.touches[0]); });
-    joystickZone.addEventListener('touchend', () => {
-        joyActive = false; knob.style.transform = `translate(0px, 0px)`;
-        keys.w = keys.a = keys.s = keys.d = false;
-    });
-
-    function handleJoyMove(touch) {
-        let dx = touch.clientX - joyCenter.x;
-        let dy = touch.clientY - joyCenter.y;
-        const maxDist = 40; 
-        const dist = Math.hypot(dx, dy);
+            <div class="box">
+                <h3>4. Exportación Automática</h3>
+                <button id="recordGifBtn">Grabar a GIF</button>
+                <button id="recordWebMBtn">Grabar a WebM (Recomendado)</button>
+                <span id="status">Sube un video para comenzar.</span>
+            </div>
+        </div>
         
-        if (dist > maxDist) { dx = (dx / dist) * maxDist; dy = (dy / dist) * maxDist; }
-        knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    </div>
+
+    <video id="videoSource" style="display:none;" muted playsinline loop autoplay></video>
+    <canvas id="renderCanvas" style="display:none;"></canvas>
+
+    <script>
+        const video = document.getElementById('videoSource');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const ctxPreview = previewCanvas.getContext('2d', { willReadFrequently: true });
         
-        const threshold = 15;
-        keys.w = dy < -threshold; keys.s = dy > threshold;
-        keys.a = dx < -threshold; keys.d = dx > threshold;
-    }
+        const renderCanvas = document.getElementById('renderCanvas');
+        const ctxRender = renderCanvas.getContext('2d', { willReadFrequently: true });
+        
+        const tolInput = document.getElementById('tolerance');
+        const flipH = document.getElementById('flipH');
+        const flipV = document.getElementById('flipV');
+        const statusTxt = document.getElementById('status');
 
-    // --- Tamaños Canvas ---
-    attackVideo.addEventListener('loadedmetadata', () => {
-        attackCanvas.height = baseSpriteHeight; 
-        attackCanvas.width = baseSpriteHeight * (attackVideo.videoWidth / attackVideo.videoHeight); 
-    });
+        const btnToggleCrop = document.getElementById('btnToggleCrop');
+        const btnConfirmCrop = document.getElementById('btnConfirmCrop');
+        const btnEyedropper = document.getElementById('btnEyedropper');
+        const nativePicker = document.getElementById('nativeColorPicker');
+        
+        const playbackSpeed = document.getElementById('playbackSpeed');
+        const btnResetSpeed = document.getElementById('btnResetSpeed');
 
-    const runScale = 0.85;
-    const runCanvasHeight = baseSpriteHeight * runScale; 
-    runVideo.addEventListener('loadedmetadata', () => {
-        runCanvas.height = runCanvasHeight; 
-        runCanvas.width = runCanvasHeight * (runVideo.videoWidth / runVideo.videoHeight); 
-    });
+        let isRecordingGif = false, isRecordingWebM = false;
+        let gif, mediaRecorder, recordedChunks = [];
+        let isUserPaused = false; // Variable para rastrear la pausa voluntaria
 
-    // --- Botones de Menú ---
-    document.getElementById('btnStart').onclick = () => { 
-        mainMenu.classList.remove('overlay-screen--active'); 
-        if (isMobile) enterFullscreenAndRotate();
-        startGame(); 
-    };
-    document.getElementById('btnRestart').onclick = () => { 
-        victoryScreen.classList.remove('overlay-screen--active'); 
-        if (isMobile) enterFullscreenAndRotate();
-        startGame(); 
-    };
+        // Geometría
+        let isCroppingMode = false;
+        let crop = { x: 0, y: 0, w: 100, h: 100 };
+        let isDragging = false, dragAction = null; 
+        let startPos = { x: 0, y: 0 }, startCrop = { ...crop };
+        const handleSize = 20;
 
-    function startGame() {
-        playerHP = 100; score = 0; scoreText.textContent = score;
-        healthFill.style.width = `100%`; healthFill.style.backgroundColor = "var(--color-health)";
-        scoreFill.style.width = `0%`;
-        pX = window.innerWidth / 2; pY = window.innerHeight / 2;
-        zombies.forEach(z => spawnZombieAway(z));
-        gameState = 'EXPLORING';
-    }
+        // Color
+        let currentMode = 'green';
+        let customColor = { r: 0, g: 255, b: 0 };
+        let isEyedropperActive = false;
+        let pendingColorPick = null;
 
-    // --- Bucle ---
-    function gameLoop() {
-        if (gameState === 'EXPLORING') {
-            movePlayer();
-            moveZombies();
-            updateSprites();
-            handleRunningAnimation();
-            checkCollision();
+        // --- LÓGICA DE LA LÍNEA DE TIEMPO INTERACTIVA ---
+        let trimStartTime = 0;
+        let trimEndTime = 100;
+        let videoDuration = 0.1;
+        let isDraggingTimeline = null; 
+        
+        let dragStartOffsetTime = 0;
+        let initialTrimStart = 0;
+        let initialTrimEnd = 0;
+
+        const track = document.getElementById('timelineTrack');
+        const tRange = document.getElementById('timelineRange');
+        const hStart = document.getElementById('handleStart');
+        const hEnd = document.getElementById('handleEnd');
+        const playhead = document.getElementById('playhead');
+
+        function updateTimelineUI() {
+            if (!videoDuration || isNaN(videoDuration)) return;
+            const startPct = (trimStartTime / videoDuration) * 100;
+            const endPct = (trimEndTime / videoDuration) * 100;
+            const currentPct = (video.currentTime / videoDuration) * 100;
+
+            hStart.style.left = startPct + '%';
+            hEnd.style.left = endPct + '%';
+            tRange.style.left = startPct + '%';
+            tRange.style.width = Math.max(0, endPct - startPct) + '%';
+            playhead.style.left = currentPct + '%';
+
+            document.getElementById('lblStart').innerText = trimStartTime.toFixed(1) + 's';
+            document.getElementById('lblEnd').innerText = trimEndTime.toFixed(1) + 's';
+            document.getElementById('lblTime').innerText = video.currentTime.toFixed(1) + 's / ' + videoDuration.toFixed(1) + 's';
         }
-        requestAnimationFrame(gameLoop);
-    }
 
-    function movePlayer() {
-        isMoving = false;
-        if (keys.w || keys.ArrowUp) { pY -= playerSpeed; isMoving = true; }
-        if (keys.s || keys.ArrowDown) { pY += playerSpeed; isMoving = true; }
-        if (keys.a || keys.ArrowLeft) { pX -= playerSpeed; isFacingLeft = true; isMoving = true; }
-        if (keys.d || keys.ArrowRight) { pX += playerSpeed; isFacingLeft = false; isMoving = true; }
-
-        pX = Math.max(0, Math.min(window.innerWidth - baseSpriteHeight, pX));
-        pY = Math.max(0, Math.min(window.innerHeight - baseSpriteHeight, pY));
-    }
-
-    function moveZombies() {
-        zombies.forEach(z => {
-            const dx = pX - z.x;
-            const dy = pY - z.y;
-            const distance = Math.hypot(dx, dy);
-
-            if (distance > 0) {
-                z.x += (dx / distance) * zombieSpeed;
-                z.y += (dy / distance) * zombieSpeed;
-                z.facingLeft = dx < 0; 
-            }
-        });
-    }
-
-    function updateSprites() {
-        zorroEl.style.left = `${pX}px`; zorroEl.style.top = `${pY}px`;
-        zorroEl.style.transform = isFacingLeft ? 'scaleX(-1)' : 'scaleX(1)';
-        zombies.forEach(z => {
-            z.el.style.left = `${z.x}px`; z.el.style.top = `${z.y}px`;
-            z.el.style.transform = z.facingLeft ? 'scaleX(1)' : 'scaleX(-1)';
-        });
-    }
-
-    function applyChromaKey(video, canvas, ctx) {
-        if (video.paused || video.ended) return;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        let frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        let data = frame.data;
-        for (let i = 0; i < data.length; i += 4) {
-            let r = data[i], g = data[i + 1], b = data[i + 2];
-            if (g > 90 && g > r * 1.3 && g > b * 1.3) data[i + 3] = 0; 
+        function getTrackTime(e) {
+            const rect = track.getBoundingClientRect();
+            let x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+            return (x / rect.width) * videoDuration;
         }
-        ctx.putImageData(frame, 0, 0);
-    }
 
-    function handleRunningAnimation() {
-        if (isMoving) {
-            if (runVideo.paused) runVideo.play();
-            zorroEl.style.display = 'none'; 
+        track.addEventListener('pointerdown', (e) => {
+            if (!video.src || videoDuration <= 0.1) return;
+            track.setPointerCapture(e.pointerId);
             
-            const canvasWidth = runCanvas.width || (baseSpriteHeight * runScale);
-            const xOffset = (canvasWidth - baseSpriteHeight) / 2;
-            const yOffset = baseSpriteHeight - runCanvasHeight; 
+            const t = getTrackTime(e);
+            const pxPerSec = track.getBoundingClientRect().width / videoDuration;
+            
+            const distStart = Math.abs(t - trimStartTime) * pxPerSec;
+            const distEnd = Math.abs(t - trimEndTime) * pxPerSec;
+            const distPlayhead = Math.abs(t - video.currentTime) * pxPerSec;
+            
+            if (distPlayhead < 15) {
+                isDraggingTimeline = 'playhead';
+            } else if (distStart < 15) {
+                isDraggingTimeline = 'start';
+            } else if (distEnd < 15) {
+                isDraggingTimeline = 'end';
+            } else if (t > trimStartTime && t < trimEndTime) {
+                isDraggingTimeline = 'range';
+                dragStartOffsetTime = t;
+                initialTrimStart = trimStartTime;
+                initialTrimEnd = trimEndTime;
+            } else {
+                isDraggingTimeline = 'playhead';
+                video.currentTime = t;
+            }
+        });
 
-            runCanvas.style.left = `${pX - xOffset}px`;
-            runCanvas.style.top = `${pY + yOffset}px`;
-            runCanvas.style.transform = isFacingLeft ? 'scaleX(-1)' : 'scaleX(1)';
-            runCanvas.style.display = 'block';
+        track.addEventListener('pointermove', (e) => {
+            if (!video.src || videoDuration <= 0.1) return;
+            const t = getTrackTime(e);
 
-            applyChromaKey(runVideo, runCanvas, runCtx);
-        } else {
-            if (!runVideo.paused) runVideo.pause();
-            runCanvas.style.display = 'none';
-            zorroEl.style.display = 'block'; 
+            if (!isDraggingTimeline) {
+                const pxPerSec = track.getBoundingClientRect().width / videoDuration;
+                const dStart = Math.abs(t - trimStartTime) * pxPerSec;
+                const dEnd = Math.abs(t - trimEndTime) * pxPerSec;
+                
+                if (dStart < 15 || dEnd < 15) track.style.cursor = 'ew-resize';
+                else if (t > trimStartTime && t < trimEndTime) track.style.cursor = 'grab';
+                else track.style.cursor = 'pointer';
+                return;
+            }
+
+            if (isDraggingTimeline === 'start') {
+                trimStartTime = Math.min(t, trimEndTime - 0.1);
+                video.currentTime = trimStartTime;
+                track.style.cursor = 'ew-resize';
+            } 
+            else if (isDraggingTimeline === 'end') {
+                trimEndTime = Math.max(t, trimStartTime + 0.1);
+                if (video.currentTime > trimEndTime) video.currentTime = trimEndTime;
+                track.style.cursor = 'ew-resize';
+            } 
+            else if (isDraggingTimeline === 'range') {
+                track.style.cursor = 'grabbing';
+                let delta = t - dragStartOffsetTime;
+                let newStart = initialTrimStart + delta;
+                let newEnd = initialTrimEnd + delta;
+                let duration = initialTrimEnd - initialTrimStart;
+
+                if (newStart < 0) { newStart = 0; newEnd = duration; }
+                if (newEnd > videoDuration) { newEnd = videoDuration; newStart = videoDuration - duration; }
+
+                trimStartTime = newStart;
+                trimEndTime = newEnd;
+                video.currentTime = trimStartTime; 
+            } 
+            else if (isDraggingTimeline === 'playhead') {
+                video.currentTime = t;
+                track.style.cursor = 'pointer';
+            }
+            updateTimelineUI();
+        });
+
+        track.addEventListener('pointerup', (e) => {
+            isDraggingTimeline = null;
+            track.style.cursor = 'pointer';
+            track.releasePointerCapture(e.pointerId);
+            
+            // Reanudar solo si el usuario NO lo pausó voluntariamente
+            if (video.paused && video.src && !isUserPaused) video.play(); 
+        });
+
+        // Velocidad
+        playbackSpeed.addEventListener('input', (e) => {
+            video.playbackRate = e.target.value;
+            document.getElementById('lblSpeed').innerText = parseFloat(e.target.value).toFixed(2) + 'x';
+        });
+
+        btnResetSpeed.addEventListener('click', () => {
+            playbackSpeed.value = 1;
+            video.playbackRate = 1;
+            document.getElementById('lblSpeed').innerText = '1.00x';
+        });
+
+        // Color 
+        function rgbToHex(r, g, b) {
+            return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1);
         }
-    }
-
-    function checkCollision() {
-        for (let i = 0; i < zombies.length; i++) {
-            const distance = Math.hypot(pX - zombies[i].x, pY - zombies[i].y);
-            if (distance < 100) { activeZombie = zombies[i]; startBattle(); break; }
-        }
-    }
-
-    function startBattle() {
-        gameState = 'FIGHTING';
-        if (!runVideo.paused) runVideo.pause();
-        runCanvas.style.display = 'none';
-        zorroEl.style.display = 'block';
-        joystickZone.style.visibility = 'hidden'; 
-        
-        currentProblem.a = Math.floor(Math.random() * 10) + 1;
-        currentProblem.b = Math.floor(Math.random() * 10) + 1;
-        currentAnswer = currentProblem.a * currentProblem.b;
-        
-        clearInput(); 
-
-        battleUI.classList.add('battle-ui--active');
-        
-        const uiWidth = battleUI.offsetWidth;
-        const uiHeight = battleUI.offsetHeight;
-        
-        let uiLeft = pX + (activeZombie.x - pX) / 2 - (uiWidth / 2);
-        let uiTop = Math.min(pY, activeZombie.y) - uiHeight - 10;
-
-        if (uiTop < 60) { 
-            uiTop = Math.max(pY, activeZombie.y) + baseSpriteHeight + 10;
+        function hexToRgb(hex) {
+            let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : {r:0, g:255, b:0};
         }
 
-        const padding = 20;
-        uiLeft = Math.max(padding, Math.min(uiLeft, window.innerWidth - uiWidth - padding));
-        uiTop = Math.max(padding, Math.min(uiTop, window.innerHeight - uiHeight - padding));
-        
-        battleUI.style.left = `${uiLeft}px`; 
-        battleUI.style.top = `${uiTop}px`;
-    }
-
-    function addDigit(num) { if (playerAnswer.length < 3) { playerAnswer += num; updateDisplay(); } }
-    function removeDigit() { playerAnswer = playerAnswer.slice(0, -1); updateDisplay(); }
-    function clearInput() { playerAnswer = ""; updateDisplay(); }
-
-    function updateDisplay() {
-        const displayValue = playerAnswer === "" ? "?" : playerAnswer;
-        displayMath.innerHTML = `${currentProblem.a} X ${currentProblem.b} = <span style="color:#ffcc00">${displayValue}</span>`;
-    }
-
-    function checkAnswer() {
-        if (playerAnswer === "") return;
-        if (parseInt(playerAnswer) === currentAnswer) {
-            playAttackSequence();
-        } else {
-            takeDamage(25);
-            battleUI.classList.add('battle-ui--error');
-            setTimeout(() => { battleUI.classList.remove('battle-ui--error'); clearInput(); }, 400);
+        function setPreset(mode, hex) {
+            currentMode = mode;
+            nativePicker.value = hex;
+            if (mode === 'custom') customColor = hexToRgb(hex);
         }
-    }
 
-    function playAttackSequence() {
-        battleUI.classList.remove('battle-ui--active');
-        gameState = 'ANIMATING'; 
-        zorroEl.style.display = 'none';
+        nativePicker.addEventListener('input', (e) => setPreset('custom', e.target.value));
+        tolInput.oninput = (e) => document.getElementById('tolVal').innerText = e.target.value;
 
-        const canvasWidth = attackCanvas.width || baseSpriteHeight;
-        const xOffset = (canvasWidth - baseSpriteHeight) / 2;
+        // Cargar Video
+        document.getElementById('videoUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            video.src = URL.createObjectURL(file);
+            isUserPaused = false;
+            video.play();
+            statusTxt.innerText = "Video cargado.";
+        });
 
-        attackCanvas.style.left = `${pX - xOffset}px`;
-        attackCanvas.style.top = `${pY}px`;
-        attackCanvas.style.transform = isFacingLeft ? 'scaleX(-1)' : 'scaleX(1)';
-        attackCanvas.style.display = 'block';
+        video.addEventListener('loadedmetadata', () => {
+            crop.x = 0; crop.y = 0; crop.w = video.videoWidth; crop.h = video.videoHeight;
+            videoDuration = video.duration;
+            trimStartTime = 0; 
+            trimEndTime = videoDuration;
+            updateTimelineUI();
+            video.play(); 
+        });
 
-        attackVideo.currentTime = 0;
-        attackVideo.play();
-        loopAttackChromaKey();
-    }
+        // Alternar Recorte
+        btnToggleCrop.addEventListener('click', () => {
+            if (!video.src) return alert('Sube un video primero.');
+            isCroppingMode = true; isEyedropperActive = false; btnEyedropper.classList.remove('active-btn');
+            btnToggleCrop.style.display = 'none'; btnConfirmCrop.style.display = 'block';
+            previewCanvas.style.cursor = 'crosshair';
+        });
+        btnConfirmCrop.addEventListener('click', () => {
+            isCroppingMode = false;
+            btnConfirmCrop.style.display = 'none'; btnToggleCrop.style.display = 'flex';
+            previewCanvas.style.cursor = 'pointer';
+        });
 
-    function loopAttackChromaKey() {
-        if (gameState !== 'ANIMATING') return;
-        applyChromaKey(attackVideo, attackCanvas, attackCtx);
-        requestAnimationFrame(loopAttackChromaKey);
-    }
+        // Gotero
+        btnEyedropper.addEventListener('click', () => {
+            if (!video.src) return alert('Sube un video primero.');
+            isEyedropperActive = !isEyedropperActive;
+            if (isEyedropperActive) {
+                btnEyedropper.classList.add('active-btn'); previewCanvas.style.cursor = 'crosshair';
+            } else {
+                btnEyedropper.classList.remove('active-btn'); previewCanvas.style.cursor = isCroppingMode ? 'crosshair' : 'pointer';
+            }
+        });
 
-    attackVideo.addEventListener('ended', () => {
-        attackCanvas.style.display = 'none';
-        zorroEl.style.display = 'block'; 
-        score += 10;
-        scoreText.textContent = score;
-        scoreFill.style.width = `${(score / maxScore) * 100}%`;
-        
-        if (score >= maxScore) {
-            gameState = 'VICTORY';
-            victoryScreen.classList.add('overlay-screen--active');
-        } else {
-            endBattle();
+        // Eventos de interacción con el Canvas Preview
+        function getPointerPos(e) {
+            const rect = previewCanvas.getBoundingClientRect();
+            return { x: (e.clientX - rect.left) * (previewCanvas.width / rect.width), y: (e.clientY - rect.top) * (previewCanvas.height / rect.height) };
         }
-    });
 
-    function takeDamage(amount) {
-        playerHP -= amount;
-        if (playerHP <= 0) {
-            playerHP = 0;
-            gameState = 'GAMEOVER';
-            setTimeout(() => { alert("¡Has muerto!"); location.reload(); }, 100);
+        previewCanvas.addEventListener('pointerdown', (e) => {
+            const pos = getPointerPos(e);
+            if (isEyedropperActive) {
+                pendingColorPick = pos; isEyedropperActive = false; btnEyedropper.classList.remove('active-btn');
+                previewCanvas.style.cursor = isCroppingMode ? 'crosshair' : 'pointer';
+                return;
+            }
+            if (isCroppingMode) {
+                dragAction = detectHit(pos);
+                if (dragAction) {
+                    isDragging = true; startPos = pos; startCrop = { ...crop };
+                    previewCanvas.setPointerCapture(e.pointerId);
+                }
+            } else {
+                // --- NUEVO: Alternar Play / Pausa si no se edita ni se usa gotero ---
+                if (video.src) {
+                    if (video.paused) {
+                        video.play();
+                        isUserPaused = false;
+                    } else {
+                        video.pause();
+                        isUserPaused = true;
+                    }
+                }
+            }
+        });
+
+        function detectHit(pos) {
+            const { x, y, w, h } = crop;
+            if (Math.abs(pos.x - x) < handleSize && Math.abs(pos.y - y) < handleSize) return 'tl';
+            if (Math.abs(pos.x - (x + w)) < handleSize && Math.abs(pos.y - y) < handleSize) return 'tr';
+            if (Math.abs(pos.x - x) < handleSize && Math.abs(pos.y - (y + h)) < handleSize) return 'bl';
+            if (Math.abs(pos.x - (x + w)) < handleSize && Math.abs(pos.y - (y + h)) < handleSize) return 'br';
+            if (pos.x > x && pos.x < x + w && pos.y > y && pos.y < y + h) return 'move';
+            return null;
         }
-        healthFill.style.width = `${playerHP}%`;
-        if (playerHP <= 25) healthFill.style.backgroundColor = "var(--color-damage)";
-    }
 
-    function endBattle() {
-        gameState = 'EXPLORING';
-        joystickZone.style.visibility = 'visible';
-        if (activeZombie) { spawnZombieAway(activeZombie); activeZombie = null; }
-    }
+        previewCanvas.addEventListener('pointermove', (e) => {
+            if (isEyedropperActive) return;
+            if (!isCroppingMode) {
+                previewCanvas.style.cursor = 'pointer';
+                return;
+            }
+            const pos = getPointerPos(e);
+            if (!isDragging) {
+                const hoverAction = detectHit(pos);
+                previewCanvas.style.cursor = hoverAction === 'move' ? 'move' : (hoverAction ? 'crosshair' : 'default');
+                return;
+            }
+            const dx = pos.x - startPos.x; const dy = pos.y - startPos.y;
+            const vw = video.videoWidth; const vh = video.videoHeight; const minSize = 50;
 
-    function spawnZombieAway(zombieObj) {
-        const edge = Math.floor(Math.random() * 4);
-        if (edge === 0) { zombieObj.x = Math.random() * window.innerWidth; zombieObj.y = -10; }
-        else if (edge === 1) { zombieObj.x = window.innerWidth + 10; zombieObj.y = Math.random() * window.innerHeight; }
-        else if (edge === 2) { zombieObj.x = Math.random() * window.innerWidth; zombieObj.y = window.innerHeight + 10; }
-        else { zombieObj.x = -10; zombieObj.y = Math.random() * window.innerHeight; }
-        
-        zombieObj.el.style.left = `${zombieObj.x}px`;
-        zombieObj.el.style.top = `${zombieObj.y}px`;
-    }
+            if (dragAction === 'move') { crop.x = Math.max(0, Math.min(vw - crop.w, startCrop.x + dx)); crop.y = Math.max(0, Math.min(vh - crop.h, startCrop.y + dy)); } 
+            else if (dragAction === 'tl') {
+                let newX = Math.max(0, Math.min(startCrop.x + dx, startCrop.x + startCrop.w - minSize));
+                let newY = Math.max(0, Math.min(startCrop.y + dy, startCrop.y + startCrop.h - minSize));
+                crop.w = startCrop.x + startCrop.w - newX; crop.h = startCrop.y + startCrop.h - newY; crop.x = newX; crop.y = newY;
+            }
+            else if (dragAction === 'tr') {
+                crop.w = Math.max(minSize, Math.min(startCrop.w + dx, vw - startCrop.x));
+                let newY = Math.max(0, Math.min(startCrop.y + dy, startCrop.y + startCrop.h - minSize));
+                crop.h = startCrop.y + startCrop.h - newY; crop.y = newY;
+            }
+            else if (dragAction === 'bl') {
+                let newX = Math.max(0, Math.min(startCrop.x + dx, startCrop.x + startCrop.w - minSize));
+                crop.w = startCrop.x + startCrop.w - newX; crop.h = Math.max(minSize, Math.min(startCrop.h + dy, vh - startCrop.y)); crop.x = newX;
+            }
+            else if (dragAction === 'br') {
+                crop.w = Math.max(minSize, Math.min(startCrop.w + dx, vw - startCrop.x)); crop.h = Math.max(minSize, Math.min(startCrop.h + dy, vh - startCrop.y));
+            }
+        });
+        previewCanvas.addEventListener('pointerup', (e) => {
+            isDragging = false; dragAction = null;
+            if (isCroppingMode) previewCanvas.releasePointerCapture(e.pointerId);
+        });
 
-    // --- Inputs ---
-    const layout = [1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, 'OK'];
-    layout.forEach(key => {
-        const btn = document.createElement('button');
-        btn.textContent = key; btn.className = 'keypad__btn';
-        if (key === 'C') { btn.classList.add('keypad__btn--clear'); btn.onclick = clearInput; } 
-        else if (key === 'OK') { btn.classList.add('keypad__btn--action'); btn.onclick = checkAnswer; } 
-        else { btn.onclick = () => addDigit(key); }
-        keypadEl.appendChild(btn);
-    });
-
-    window.addEventListener('keydown', (e) => {
-        if (gameState === 'EXPLORING') {
-            keys[e.key] = true;
-        } else if (gameState === 'FIGHTING') {
-            if (e.key >= '0' && e.key <= '9') addDigit(e.key);
-            if (e.key === 'Backspace') removeDigit();
-            if (e.key === 'Escape' || e.key.toLowerCase() === 'c') clearInput();
-            if (e.key === 'Enter') checkAnswer();
+        // Procesamiento Render
+        function applyChromaKey(ctx, width, height) {
+            const frameData = ctx.getImageData(0, 0, width, height); const data = frameData.data; const tol = parseInt(tolInput.value);
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i], g = data[i + 1], b = data[i + 2]; let remove = false;
+                if (currentMode === 'green') { if (g > r + tol && g > b + tol) remove = true; } 
+                else if (currentMode === 'blue') { if (b > r + tol && b > g + tol) remove = true; } 
+                else if (currentMode === 'red') { if (r > g + tol && r > b + tol) remove = true; } 
+                else if (currentMode === 'custom') {
+                    if (Math.hypot(r - customColor.r, g - customColor.g, b - customColor.b) < tol * 1.5) remove = true;
+                }
+                if (remove) data[i + 3] = 0;
+            }
+            ctx.putImageData(frameData, 0, 0);
         }
-    });
 
-    window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+        function drawMirroredVideo(ctx, sx, sy, sw, sh, dx, dy, dw, dh) {
+            ctx.save();
+            if (flipH.checked || flipV.checked) {
+                ctx.translate(flipH.checked ? dw : 0, flipV.checked ? dh : 0); ctx.scale(flipH.checked ? -1 : 1, flipV.checked ? -1 : 1);
+                let fSx = flipH.checked ? (video.videoWidth - sx - sw) : sx; let fSy = flipV.checked ? (video.videoHeight - sy - sh) : sy;
+                ctx.drawImage(video, fSx, fSy, sw, sh, 0, 0, dw, dh);
+            } else { ctx.drawImage(video, sx, sy, sw, sh, dx, dy, dw, dh); }
+            ctx.restore();
+        }
 
-    requestAnimationFrame(gameLoop);
-</script>
+        function handleAutoLoopAndRecording() {
+            const isExporting = isRecordingGif || isRecordingWebM;
+            
+            // Pausar auto-loop si el usuario está interactuando con la línea de tiempo manualmente
+            if (isDraggingTimeline && !isExporting) return;
+            
+            if (video.currentTime >= trimEndTime || video.ended) {
+                if (isExporting) {
+                    if (isRecordingGif) { isRecordingGif = false; statusTxt.innerText = "Renderizando GIF..."; gif.render(); }
+                    if (isRecordingWebM) { isRecordingWebM = false; mediaRecorder.stop(); }
+                }
+                video.currentTime = trimStartTime;
+                if (!video.paused) video.play(); // Solo seguir reproduciendo si no estaba en pausa
+                
+            } else if (video.currentTime < trimStartTime) {
+                if (!isDraggingTimeline) {
+                    video.currentTime = trimStartTime;
+                    if (!video.paused) video.play();
+                }
+            }
+        }
+
+        function processFrame() {
+            if (video.videoWidth === 0) {
+                requestAnimationFrame(processFrame);
+                return;
+            }
+
+            handleAutoLoopAndRecording();
+            updateTimelineUI();
+
+            const vw = video.videoWidth; const vh = video.videoHeight;
+
+            if (isCroppingMode) {
+                previewCanvas.width = vw; previewCanvas.height = vh;
+                drawMirroredVideo(ctxPreview, 0, 0, vw, vh, 0, 0, vw, vh);
+                
+                if (pendingColorPick) {
+                    const pixel = ctxPreview.getImageData(pendingColorPick.x, pendingColorPick.y, 1, 1).data;
+                    setPreset('custom', rgbToHex(pixel[0], pixel[1], pixel[2]));
+                    pendingColorPick = null;
+                }
+
+                applyChromaKey(ctxPreview, vw, vh);
+
+                ctxPreview.fillStyle = 'rgba(0,0,0,0.6)';
+                ctxPreview.fillRect(0,0,vw,crop.y); ctxPreview.fillRect(0,crop.y+crop.h,vw,vh-(crop.y+crop.h));
+                ctxPreview.fillRect(0,crop.y,crop.x,crop.h); ctxPreview.fillRect(crop.x+crop.w,crop.y,vw-(crop.x+crop.w),crop.h);
+
+                ctxPreview.strokeStyle='#fbfb8e'; ctxPreview.lineWidth=2; ctxPreview.strokeRect(crop.x,crop.y,crop.w,crop.h);
+                ctxPreview.beginPath(); ctxPreview.moveTo(crop.x+crop.w/3,crop.y); ctxPreview.lineTo(crop.x+crop.w/3,crop.y+crop.h);
+                ctxPreview.moveTo(crop.x+(crop.w/3)*2,crop.y); ctxPreview.lineTo(crop.x+(crop.w/3)*2,crop.y+crop.h);
+                ctxPreview.moveTo(crop.x,crop.y+crop.h/3); ctxPreview.lineTo(crop.x+crop.w,crop.y+crop.h/3);
+                ctxPreview.moveTo(crop.x,crop.y+(crop.h/3)*2); ctxPreview.lineTo(crop.x+crop.w,crop.y+(crop.h/3)*2); ctxPreview.stroke();
+
+                ctxPreview.lineWidth=6; const cl=20; ctxPreview.beginPath();
+                ctxPreview.moveTo(crop.x,crop.y+cl); ctxPreview.lineTo(crop.x,crop.y); ctxPreview.lineTo(crop.x+cl,crop.y);
+                ctxPreview.moveTo(crop.x+crop.w-cl,crop.y); ctxPreview.lineTo(crop.x+crop.w,crop.y); ctxPreview.lineTo(crop.x+crop.w,crop.y+cl);
+                ctxPreview.moveTo(crop.x,crop.y+crop.h-cl); ctxPreview.lineTo(crop.x,crop.y+crop.h); ctxPreview.lineTo(crop.x+cl,crop.y+crop.h);
+                ctxPreview.moveTo(crop.x+crop.w-cl,crop.y+crop.h); ctxPreview.lineTo(crop.x+crop.w,crop.y+crop.h); ctxPreview.lineTo(crop.x+crop.w,crop.y+crop.h-cl);
+                ctxPreview.stroke();
+            } else {
+                previewCanvas.width = crop.w; previewCanvas.height = crop.h;
+                ctxPreview.clearRect(0, 0, crop.w, crop.h);
+                drawMirroredVideo(ctxPreview, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
+                
+                if (pendingColorPick) {
+                    const pixel = ctxPreview.getImageData(pendingColorPick.x, pendingColorPick.y, 1, 1).data;
+                    setPreset('custom', rgbToHex(pixel[0], pixel[1], pixel[2]));
+                    pendingColorPick = null;
+                }
+                applyChromaKey(ctxPreview, crop.w, crop.h);
+            }
+
+            if (isRecordingGif || isRecordingWebM) {
+                renderCanvas.width = crop.w; renderCanvas.height = crop.h;
+                ctxRender.clearRect(0, 0, crop.w, crop.h);
+                drawMirroredVideo(ctxRender, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
+                applyChromaKey(ctxRender, crop.w, crop.h);
+
+                if (isRecordingGif && gif) gif.addFrame(ctxRender, {copy: true, delay: 1000 / (30 * video.playbackRate), transparent: 'rgba(0,0,0,0)'});
+            }
+            requestAnimationFrame(processFrame);
+        }
+
+        video.addEventListener('play', () => requestAnimationFrame(processFrame));
+
+        // Exportación
+        document.getElementById('recordGifBtn').addEventListener('click', (e) => {
+            if (!video.src) return alert('Sube un video primero.');
+            if (isRecordingWebM) return;
+            const btn = e.target;
+            
+            if (!isRecordingGif) {
+                isRecordingGif = true; btn.innerText = "Detener y Renderizar GIF"; btn.classList.add('active-btn');
+                statusTxt.innerText = "Grabando frames GIF...";
+                video.currentTime = trimStartTime;
+                isUserPaused = false; // Quitar pausa al exportar
+                video.play(); 
+                
+                gif = new GIF({ workers: 2, quality: 10, width: crop.w, height: crop.h, workerScript: 'gif.worker.js', transparent: "rgba(0,0,0,0)" });
+                gif.on('finished', function(blob) {
+                    descargar(blob, 'animacion.gif'); statusTxt.innerText = "¡GIF listo!";
+                    btn.innerText = "Grabar a GIF"; btn.classList.remove('active-btn');
+                });
+            } else {
+                isRecordingGif = false; statusTxt.innerText = "Procesando..."; gif.render();
+            }
+        });
+
+        document.getElementById('recordWebMBtn').addEventListener('click', (e) => {
+            if (!video.src) return alert('Sube un video primero.');
+            if (isRecordingGif) return;
+            const btn = e.target;
+            
+            if (!isRecordingWebM) {
+                isRecordingWebM = true; btn.innerText = "Detener y Exportar WebM"; btn.classList.add('active-btn');
+                statusTxt.innerText = "Grabando WebM...";
+                video.currentTime = trimStartTime;
+                isUserPaused = false; // Quitar pausa al exportar
+                video.play(); 
+                recordedChunks = [];
+
+                const stream = renderCanvas.captureStream(30); 
+                let options = { mimeType: 'video/webm; codecs=vp9' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: 'video/webm; codecs=vp8' };
+
+                mediaRecorder = new MediaRecorder(stream, options);
+                mediaRecorder.ondataavailable = (ev) => { if (ev.data.size > 0) recordedChunks.push(ev.data); };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    descargar(blob, 'video.webm'); statusTxt.innerText = "¡WebM listo!";
+                    btn.innerText = "Grabar a WebM (Recomendado)"; btn.classList.remove('active-btn');
+                };
+                mediaRecorder.start();
+            } else {
+                isRecordingWebM = false; mediaRecorder.stop();
+            }
+        });
+
+        function descargar(blob, name) {
+            const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name;
+            a.click(); URL.revokeObjectURL(url);
+        }
+    </script>
 </body>
 </html>
