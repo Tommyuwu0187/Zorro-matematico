@@ -51,6 +51,32 @@
         .overlay-screen h1 { font-size: 3rem; color: #ffcc00; margin-bottom: 10px; text-shadow: 2px 2px 0 #000;}
         .overlay-screen p { font-size: 1.2rem; margin-bottom: 30px; padding: 0 20px;}
 
+        /* --- UI Pantalla de Carga --- */
+        #loadingScreen { z-index: 300; background: #000; }
+        
+        .loading-video-container {
+            width: 140px; height: 140px; margin-bottom: 20px;
+        }
+
+        #loadingText {
+            color: #b8b8b8;
+            text-shadow: none; /* Quitar sombra para estilo más limpio */
+        }
+        
+        .loading-bar-wrapper {
+            width: 80%; max-width: 400px; height: 20px;
+            background: transparent; 
+            border: 1px solid #ffffff; 
+            border-radius: 0; /* Sin bordes redondeados */
+            overflow: hidden; margin-top: 15px; 
+        }
+        
+        .loading-bar-fill {
+            width: 0%; height: 100%; 
+            background: #ffffff; /* Relleno totalmente blanco */
+            transition: width 0.3s ease;
+        }
+
         .btn-menu {
             padding: 15px 40px;
             font-size: 1.5rem;
@@ -261,8 +287,17 @@
     <button id="btnForceRotate" class="btn-menu">🔄 Rotar Pantalla</button>
 </div>
 
+<!-- PANTALLA DE CARGA (Activa por defecto) -->
+<div id="loadingScreen" class="overlay-screen overlay-screen--active">
+    <video id="loadingVideo" class="loading-video-container" src="SPRITES/correr.webm" muted autoplay loop playsinline style="image-rendering: pixelated;"></video>
+    <h1 id="loadingText">Cargando.</h1>
+    <div class="loading-bar-wrapper">
+        <div class="loading-bar-fill" id="loadingBarFill"></div>
+    </div>
+</div>
+
 <!-- Menú Principal -->
-<div id="mainMenu" class="overlay-screen overlay-screen--active">
+<div id="mainMenu" class="overlay-screen">
     <button id="btnSettingsMain" class="btn-small-icon corner-btn">⚙️</button>
     <h1>Zorro Matemático</h1>
     <p>Resuelve las operaciones antes de que acabe el tiempo.</p>
@@ -370,13 +405,18 @@
     const scoreFill = document.getElementById('scoreFill');
     const scoreText = document.getElementById('scoreText');
 
+    const loadingScreen = document.getElementById('loadingScreen');
+    const loadingText = document.getElementById('loadingText');
+    const loadingBarFill = document.getElementById('loadingBarFill');
+    const loadingVideo = document.getElementById('loadingVideo');
+    
     const mainMenu = document.getElementById('mainMenu');
     const userPauseScreen = document.getElementById('userPauseScreen');
     const settingsScreen = document.getElementById('settingsScreen');
     const pauseScreen = document.getElementById('pauseScreen');
     const victoryScreen = document.getElementById('victoryScreen');
 
-    let gameState = 'MENU'; 
+    let gameState = 'LOADING'; 
     let previousState = '';
     let screenBeforeSettings = null; 
     
@@ -429,14 +469,12 @@
     swordSound.volume = savedSfxVol;
     zombieSound.volume = savedSfxVol;
 
-    // Mutear Música
     btnMuteMusic.addEventListener('click', () => {
         isMusicMuted = !isMusicMuted;
         btnMuteMusic.textContent = isMusicMuted ? "🔇" : "🔊";
         bgMusic.volume = isMusicMuted ? 0 : savedMusicVol;
     });
 
-    // Mutear SFX
     btnMuteSfx.addEventListener('click', () => {
         isSfxMuted = !isSfxMuted;
         btnMuteSfx.textContent = isSfxMuted ? "🔇" : "🔊";
@@ -444,7 +482,6 @@
         zombieSound.volume = isSfxMuted ? 0 : savedSfxVol;
     });
 
-    // Barra Música
     musicVolInput.addEventListener('input', (e) => {
         savedMusicVol = parseFloat(e.target.value);
         musicVolLabel.textContent = `${Math.round(savedMusicVol * 100)}%`;
@@ -455,7 +492,6 @@
         bgMusic.volume = savedMusicVol;
     });
 
-    // Barra SFX
     sfxVolInput.addEventListener('input', (e) => {
         savedSfxVol = parseFloat(e.target.value);
         sfxVolLabel.textContent = `${Math.round(savedSfxVol * 100)}%`;
@@ -474,7 +510,7 @@
         }
     }
 
-    // --- PAUSAR MÚSICA AL PERDER EL FOCO DE LA PANTALLA ---
+    // --- PAUSAR MÚSICA AL PERDER EL FOCO ---
     function handleWindowBlur() {
         if (!bgMusic.paused) {
             bgMusic.pause();
@@ -501,6 +537,61 @@
         }
     });
 
+    // --- SISTEMA DE PRECARGA (LOADING SCREEN) ---
+    const assetsToLoad = [
+        'SPRITES/background.jpg',
+        'SPRITES/zorro.png',
+        'SPRITES/zombie.png',
+        'SPRITES/correr.webm',
+        'SPRITES/ataque.webm',
+        'SPRITES/audio.mp3',
+        'SPRITES/swordAtack.mp3',
+        'SPRITES/zombieAtack(punch).mp3'
+    ];
+    let loadedAssetsCount = 0;
+    
+    // Animación del texto Cargando...
+    let dots = 1;
+    const textInterval = setInterval(() => {
+        dots = (dots % 4) + 1; 
+        loadingText.textContent = `Cargando${'.'.repeat(dots)}`;
+    }, 400);
+
+    function startPreloading() {
+        assetsToLoad.forEach(url => {
+            fetch(url)
+                .then(response => response.blob())
+                .then(() => assetLoaded())
+                .catch(err => {
+                    console.warn(`Error pre-cargando: ${url}`, err);
+                    assetLoaded(); // Lo pasamos igual para no bloquear el juego
+                });
+        });
+    }
+
+    function assetLoaded() {
+        loadedAssetsCount++;
+        const progress = (loadedAssetsCount / assetsToLoad.length) * 100;
+        loadingBarFill.style.width = `${progress}%`;
+
+        if (loadedAssetsCount >= assetsToLoad.length) {
+            setTimeout(finishLoading, 500); 
+        }
+    }
+
+    function finishLoading() {
+        clearInterval(textInterval);
+        loadingVideo.pause(); // Ahorrar recursos
+        loadingScreen.classList.remove('overlay-screen--active');
+        mainMenu.classList.add('overlay-screen--active');
+        gameState = 'MENU';
+        refreshFocusableElements();
+    }
+
+    // Iniciar carga en cuanto cargue el DOM
+    document.addEventListener("DOMContentLoaded", startPreloading);
+
+
     // --- NAVEGACIÓN MATRICIAL 2D Y SISTEMA DE FOCO ---
     let focusableElements = [];
     let currentFocusIndex = 0;
@@ -525,14 +616,12 @@
         }
     }
 
-    // Navegación bidimensional completa para Menús y Teclado Numérico (3x4)
     function navigateGrid(direction) {
         if (focusableElements.length === 0) return;
 
         const isMenu = document.querySelector('.overlay-screen--active');
 
         if (isMenu) {
-            // Menú vertical / ajustes
             if (direction === 'UP' || direction === 'LEFT') {
                 if (direction === 'LEFT' && focusableElements[currentFocusIndex]?.tagName === 'INPUT') {
                     adjustFocusedSlider(-0.1);
@@ -547,7 +636,6 @@
                 currentFocusIndex = (currentFocusIndex + 1) % focusableElements.length;
             }
         } else if (gameState === 'FIGHTING') {
-            // Matriz 3x4 del Keypad Matemático
             const col = currentFocusIndex % 3;
             const row = Math.floor(currentFocusIndex / 3);
 
@@ -646,7 +734,7 @@
 
     // --- PAUSA MANUAL ---
     function togglePauseGame() {
-        if (gameState === 'MENU' || gameState === 'GAMEOVER' || gameState === 'VICTORY' || gameState === 'TIMEOUT') return;
+        if (gameState === 'LOADING' || gameState === 'MENU' || gameState === 'GAMEOVER' || gameState === 'VICTORY' || gameState === 'TIMEOUT') return;
         
         if (gameState === 'USER_PAUSED') {
             gameState = previousState;
@@ -731,6 +819,11 @@
     let lastTime = 0;
 
     function gameLoop(timestamp) {
+        if (gameState === 'LOADING') {
+            requestAnimationFrame(gameLoop);
+            return;
+        }
+
         let deltaTime = timestamp - lastTime;
         lastTime = timestamp;
         
@@ -812,11 +905,25 @@
                 lastGpNavTime = now;
             }
 
-            // Botón A (Aceptar)
+            // Botón A en Mando: Igual que el teclado. En combate introduce, en menú confirma.
             if (gp.buttons[0]?.pressed && !prevGpButtons.btnA) {
-                activateFocused();
+                if (gameState === 'FIGHTING') {
+                    if (focusableElements[currentFocusIndex] && focusableElements[currentFocusIndex].textContent === 'OK') {
+                        checkAnswer();
+                    } else {
+                        activateFocused();
+                    }
+                } else {
+                    activateFocused();
+                }
             }
             prevGpButtons.btnA = gp.buttons[0]?.pressed;
+
+            // Botón X (Confirmar/Enter)
+            if (gp.buttons[2]?.pressed && !prevGpButtons.btnX) {
+                if (gameState === 'FIGHTING') checkAnswer();
+            }
+            prevGpButtons.btnX = gp.buttons[2]?.pressed;
 
             // Botón B / Esc (Atrás / Limpiar)
             if (gp.buttons[1]?.pressed && !prevGpButtons.btnB) {
@@ -1089,7 +1196,7 @@
         }
     }
 
-    // --- MANEJO DE TECLADO Y FLECHAS 2D ---
+    // --- MANEJO DE TECLADO Y SEPARACIÓN DE TECLAS ---
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             handleEscapeAction();
@@ -1102,19 +1209,39 @@
             if (e.key >= '0' && e.key <= '9') addDigit(e.key);
             if (e.key === 'Backspace') removeDigit();
             if (e.key.toLowerCase() === 'c') clearInput();
+
+            // ESPACIO: SOLO para introducir el valor del botón enfocado
+            if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault();
+                if (focusableElements[currentFocusIndex] && keypadEl.contains(focusableElements[currentFocusIndex])) {
+                    if (focusableElements[currentFocusIndex].textContent !== 'OK') {
+                        activateFocused();
+                    }
+                }
+            }
+
+            // ENTER: SOLO para confirmar (ataque)
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                checkAnswer();
+            }
+        } else {
+            // En los MENÚS: ENTER SOLO para confirmar
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                activateFocused();
+            }
+            if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault();
+            }
         }
 
-        // Desplazamiento en la grilla/menús con flechas del teclado
+        // Navegación en la grilla/menús con flechas
         if (gameState !== 'EXPLORING') {
             if (e.key === 'ArrowUp') { e.preventDefault(); navigateGrid('UP'); }
             if (e.key === 'ArrowDown') { e.preventDefault(); navigateGrid('DOWN'); }
             if (e.key === 'ArrowLeft') { e.preventDefault(); navigateGrid('LEFT'); }
             if (e.key === 'ArrowRight') { e.preventDefault(); navigateGrid('RIGHT'); }
-            
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                activateFocused();
-            }
         }
     });
 
@@ -1123,6 +1250,7 @@
     // Enfoque inicial
     refreshFocusableElements();
 
+    // Arrancamos el Loop para que dibuje o espere en LOADING
     requestAnimationFrame(gameLoop);
 </script>
 </body>
