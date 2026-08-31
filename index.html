@@ -60,20 +60,20 @@
 
         #loadingText {
             color: #b8b8b8;
-            text-shadow: none; /* Quitar sombra para estilo más limpio */
+            text-shadow: none;
         }
         
         .loading-bar-wrapper {
             width: 80%; max-width: 400px; height: 20px;
             background: transparent; 
             border: 1px solid #ffffff; 
-            border-radius: 0; /* Sin bordes redondeados */
+            border-radius: 0; 
             overflow: hidden; margin-top: 15px; 
         }
         
         .loading-bar-fill {
             width: 0%; height: 100%; 
-            background: #ffffff; /* Relleno totalmente blanco */
+            background: #ffffff; 
             transition: width 0.3s ease;
         }
 
@@ -199,7 +199,7 @@
         }
         
         #zorro { background-image: url('SPRITES/zorro.png'); z-index: 10; }
-        .zombie-sprite { background-image: url('SPRITES/zombie.png'); z-index: 5; }
+        .zombie-sprite { background-image: url('SPRITES/zombie.webp'); z-index: 5; } /* Cambiado a .webp */
         
         .anim-video {
             position: absolute;
@@ -211,7 +211,8 @@
             image-rendering: pixelated;
         }
         #runVideo { z-index: 10; height: 119px; } 
-        #attackVideo { z-index: 15; } 
+        #attackVideo, #zombieAttackVideo { z-index: 15; } 
+        #zombie1Walk, #zombie2Walk { z-index: 5; } /* Z-index de movimiento del zombi */
 
         /* --- UI HUD --- */
         .hud {
@@ -371,9 +372,14 @@
     <div id="zorro" class="sprite"></div>
     <video id="runVideo" class="anim-video" src="SPRITES/correr.webm" muted loop playsinline></video>
     <video id="attackVideo" class="anim-video" src="SPRITES/ataque.webm" muted playsinline></video>
+    <video id="zombieAttackVideo" class="anim-video" src="SPRITES/ataqueZombie.webm" muted playsinline></video>
     
+    <!-- Zombies -->
     <div id="zombie1" class="sprite zombie-sprite"></div>
+    <video id="zombie1Walk" class="anim-video" src="SPRITES/zombieCaminando.webm" muted loop playsinline></video>
+    
     <div id="zombie2" class="sprite zombie-sprite"></div>
+    <video id="zombie2Walk" class="anim-video" src="SPRITES/zombieCaminando.webm" muted loop playsinline></video>
     
     <div id="battleUI" class="battle-ui">
         <div class="battle-ui__content">
@@ -397,6 +403,7 @@
     const zorroEl = document.getElementById('zorro');
     const runVideo = document.getElementById('runVideo');
     const attackVideo = document.getElementById('attackVideo');
+    const zombieAttackVideo = document.getElementById('zombieAttackVideo');
 
     const battleUI = document.getElementById('battleUI');
     const displayMath = document.getElementById('displayMath');
@@ -435,9 +442,18 @@
     const zombieSpeed = 1.5; 
     const baseSpriteHeight = 140;
 
+    // Actualizado con los elementos de video de cada zombi
     const zombies = [
-        { el: document.getElementById('zombie1'), x: 0, y: 0, facingLeft: true },
-        { el: document.getElementById('zombie2'), x: 0, y: 0, facingLeft: true }
+        { 
+            el: document.getElementById('zombie1'), 
+            walkEl: document.getElementById('zombie1Walk'),
+            x: 0, y: 0, facingLeft: true, isMoving: false 
+        },
+        { 
+            el: document.getElementById('zombie2'), 
+            walkEl: document.getElementById('zombie2Walk'),
+            x: 0, y: 0, facingLeft: true, isMoving: false 
+        }
     ];
     let activeZombie = null; 
     const keys = { w: false, a: false, s: false, d: false };
@@ -519,7 +535,7 @@
     }
 
     function handleWindowFocus() {
-        if (wasMusicPlayingBeforeBlur && (gameState === 'EXPLORING' || gameState === 'FIGHTING' || gameState === 'ANIMATING')) {
+        if (wasMusicPlayingBeforeBlur && (gameState === 'EXPLORING' || gameState === 'FIGHTING' || gameState === 'ANIMATING' || gameState === 'ANIMATING_ZOMBIE')) {
             if (!isMusicMuted && savedMusicVol > 0) {
                 bgMusic.play().catch(e => console.log(e));
             }
@@ -538,13 +554,15 @@
     });
 
     // --- SISTEMA DE PRECARGA (LOADING SCREEN) ---
+    // NOTA: Se removió 'SPRITES/audio.mp3' de la carga obligatoria para que el juego inicie sin esperarlo.
     const assetsToLoad = [
         'SPRITES/background.jpg',
         'SPRITES/zorro.png',
-        'SPRITES/zombie.png',
+        'SPRITES/zombie.webp',
         'SPRITES/correr.webm',
         'SPRITES/ataque.webm',
-        'SPRITES/audio.mp3',
+        'SPRITES/ataqueZombie.webm',
+        'SPRITES/zombieCaminando.webm',
         'SPRITES/swordAtack.mp3',
         'SPRITES/zombieAtack(punch).mp3'
     ];
@@ -711,12 +729,14 @@
         const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
         
         if (!isFullscreen) {
-            if (gameState === 'EXPLORING' || gameState === 'FIGHTING' || gameState === 'ANIMATING') {
+            if (gameState === 'EXPLORING' || gameState === 'FIGHTING' || gameState === 'ANIMATING' || gameState === 'ANIMATING_ZOMBIE') {
                 previousState = gameState;
                 gameState = 'PAUSED_FS';
                 pauseScreen.classList.add('overlay-screen--active');
                 if (!runVideo.paused) runVideo.pause();
                 if (!attackVideo.paused) attackVideo.pause();
+                if (!zombieAttackVideo.paused) zombieAttackVideo.pause();
+                zombies.forEach(z => { if (!z.walkEl.paused) z.walkEl.pause(); });
                 refreshFocusableElements();
             }
         } else {
@@ -724,7 +744,11 @@
                 gameState = previousState;
                 pauseScreen.classList.remove('overlay-screen--active');
                 if (gameState === 'ANIMATING') attackVideo.play();
-                if (gameState === 'EXPLORING' && isMoving) runVideo.play();
+                if (gameState === 'ANIMATING_ZOMBIE') zombieAttackVideo.play();
+                if (gameState === 'EXPLORING') {
+                    if (isMoving) runVideo.play();
+                    zombies.forEach(z => { if (z.isMoving) z.walkEl.play(); });
+                }
                 lastTime = performance.now(); 
                 refreshFocusableElements();
             }
@@ -741,7 +765,11 @@
             userPauseScreen.classList.remove('overlay-screen--active');
             if (isMobile) enterFullscreenAndRotate();
             if (gameState === 'ANIMATING') attackVideo.play();
-            if (gameState === 'EXPLORING' && isMoving) runVideo.play();
+            if (gameState === 'ANIMATING_ZOMBIE') zombieAttackVideo.play();
+            if (gameState === 'EXPLORING') {
+                if (isMoving) runVideo.play();
+                zombies.forEach(z => { if (z.isMoving) z.walkEl.play(); });
+            }
             lastTime = performance.now(); 
         } else {
             previousState = gameState;
@@ -749,6 +777,8 @@
             userPauseScreen.classList.add('overlay-screen--active');
             if (!runVideo.paused) runVideo.pause();
             if (!attackVideo.paused) attackVideo.pause();
+            if (!zombieAttackVideo.paused) zombieAttackVideo.pause();
+            zombies.forEach(z => { if (!z.walkEl.paused) z.walkEl.pause(); });
         }
         currentFocusIndex = 0;
         refreshFocusableElements();
@@ -905,7 +935,7 @@
                 lastGpNavTime = now;
             }
 
-            // Botón A en Mando: Igual que el teclado. En combate introduce, en menú confirma.
+            // Botón A en Mando
             if (gp.buttons[0]?.pressed && !prevGpButtons.btnA) {
                 if (gameState === 'FIGHTING') {
                     if (focusableElements[currentFocusIndex] && focusableElements[currentFocusIndex].textContent === 'OK') {
@@ -957,6 +987,9 @@
                 z.x += (dx / distance) * zombieSpeed;
                 z.y += (dy / distance) * zombieSpeed;
                 z.facingLeft = dx < 0; 
+                z.isMoving = true; // Activar animación al moverse
+            } else {
+                z.isMoving = false;
             }
             
             const minY = window.innerHeight * 0.3;
@@ -969,8 +1002,21 @@
         zorroEl.style.left = `${pX}px`; zorroEl.style.top = `${pY}px`;
         zorroEl.style.transform = isFacingLeft ? 'scaleX(-1)' : 'scaleX(1)';
         zombies.forEach(z => {
-            z.el.style.left = `${z.x}px`; z.el.style.top = `${z.y}px`;
-            z.el.style.transform = z.facingLeft ? 'scaleX(1)' : 'scaleX(-1)';
+            if (z.isMoving && gameState === 'EXPLORING') {
+                z.el.style.display = 'none';
+                z.walkEl.style.left = `${z.x}px`;
+                z.walkEl.style.top = `${z.y}px`;
+                z.walkEl.style.transform = z.facingLeft ? 'scaleX(1)' : 'scaleX(-1)';
+                if (z.walkEl.paused) z.walkEl.play().catch(e => {});
+                z.walkEl.style.display = 'block';
+            } else {
+                if (!z.walkEl.paused) z.walkEl.pause();
+                z.walkEl.style.display = 'none';
+                z.el.style.left = `${z.x}px`;
+                z.el.style.top = `${z.y}px`;
+                z.el.style.transform = z.facingLeft ? 'scaleX(1)' : 'scaleX(-1)';
+                z.el.style.display = 'block';
+            }
         });
     }
 
@@ -1002,10 +1048,23 @@
         battleTimeLeft = maxBattleTime;
         updateTimerUI();
 
+        // Parar y esconder animación zorro
         if (!runVideo.paused) runVideo.pause();
         runVideo.style.display = 'none';
         zorroEl.style.display = 'block';
         joystickZone.style.visibility = 'hidden'; 
+        
+        // Parar y esconder animaciones de zombis, y mostrar el estático
+        zombies.forEach(z => {
+            z.isMoving = false;
+            if (!z.walkEl.paused) z.walkEl.pause();
+            z.walkEl.style.display = 'none';
+            
+            z.el.style.left = `${z.x}px`;
+            z.el.style.top = `${z.y}px`;
+            z.el.style.transform = z.facingLeft ? 'scaleX(1)' : 'scaleX(-1)';
+            z.el.style.display = 'block';
+        });
         
         currentProblem.a = Math.floor(Math.random() * 10) + 1;
         currentProblem.b = Math.floor(Math.random() * 10) + 1;
@@ -1045,27 +1104,57 @@
         }
     }
 
+    function playZombieAttackSequence(onComplete) {
+        gameState = 'ANIMATING_ZOMBIE'; 
+        
+        if(activeZombie) activeZombie.el.style.display = 'none';
+        
+        zombieAttackVideo.style.left = `${activeZombie.x}px`;
+        zombieAttackVideo.style.top = `${activeZombie.y}px`;
+        zombieAttackVideo.style.transform = activeZombie.facingLeft ? 'scaleX(1)' : 'scaleX(-1)';
+        zombieAttackVideo.style.display = 'block';
+        
+        zombieAttackVideo.currentTime = 0;
+        zombieAttackVideo.play().catch(e => console.log(e));
+
+        let halfDurationMs = (zombieAttackVideo.duration > 0 ? (zombieAttackVideo.duration * 1000) / 2 : 500);
+        
+        setTimeout(() => {
+            if(gameState === 'ANIMATING_ZOMBIE') {
+                playSfx(zombieSound);
+                takeDamage(25);
+                battleUI.classList.add('battle-ui--error');
+                setTimeout(() => { 
+                    battleUI.classList.remove('battle-ui--error'); 
+                }, 400);
+            }
+        }, halfDurationMs);
+
+        zombieAttackVideo.onended = () => {
+            if(gameState !== 'ANIMATING_ZOMBIE') return; 
+            
+            zombieAttackVideo.style.display = 'none';
+            if(activeZombie) activeZombie.el.style.display = 'block';
+            
+            if (playerHP > 0) {
+                gameState = 'FIGHTING';
+                if (onComplete) onComplete();
+            }
+        };
+    }
+
     function triggerTimeoutAttack() {
-        gameState = 'TIMEOUT'; 
         battleTimeLeft = 0;
         updateTimerUI();
         
-        playSfx(zombieSound);
-        
-        takeDamage(25);
-        battleUI.classList.add('battle-ui--error');
-        
-        setTimeout(() => { 
-            battleUI.classList.remove('battle-ui--error');
-            if (gameState === 'TIMEOUT') {
-                battleTimeLeft = maxBattleTime;
-                gameState = 'FIGHTING';
-            }
-        }, 400);
+        playZombieAttackSequence(() => {
+            battleTimeLeft = maxBattleTime;
+            updateTimerUI();
+        });
     }
 
-    function addDigit(num) { if (playerAnswer.length < 3) { playerAnswer += num; updateDisplay(); } }
-    function removeDigit() { playerAnswer = playerAnswer.slice(0, -1); updateDisplay(); }
+    function addDigit(num) { if (gameState !== 'FIGHTING') return; if (playerAnswer.length < 3) { playerAnswer += num; updateDisplay(); } }
+    function removeDigit() { if (gameState !== 'FIGHTING') return; playerAnswer = playerAnswer.slice(0, -1); updateDisplay(); }
     function clearInput() { playerAnswer = ""; updateDisplay(); }
 
     function updateDisplay() {
@@ -1074,16 +1163,17 @@
     }
 
     function checkAnswer() {
+        if (gameState !== 'FIGHTING') return; 
         if (playerAnswer === "") return;
+
         if (parseInt(playerAnswer) === currentAnswer) {
             playAttackSequence();
         } else {
-            playSfx(zombieSound);
-            
-            takeDamage(25);
-            battleUI.classList.add('battle-ui--error');
-            battleTimeLeft -= 1000;
-            setTimeout(() => { battleUI.classList.remove('battle-ui--error'); clearInput(); }, 400);
+            playZombieAttackSequence(() => {
+                battleTimeLeft -= 1000;
+                clearInput();
+                updateTimerUI();
+            });
         }
     }
 
@@ -1173,6 +1263,7 @@
         
         zombieObj.el.style.left = `${zombieObj.x}px`;
         zombieObj.el.style.top = `${zombieObj.y}px`;
+        zombieObj.isMoving = true;
     }
 
     layout = [1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, 'OK'];
